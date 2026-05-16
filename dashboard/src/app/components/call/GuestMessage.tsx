@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import { Keyword } from '@/data/mockCallData';
 
-const KEYWORD_HIGHLIGHT = 'rgba(190, 230, 255, 0.6)'; // light baby blue highlight
+const KEYWORD_HIGHLIGHT = 'rgba(255, 225, 120, 0.7)'; // warm yellow highlight
 
 interface Props {
   text: string;
