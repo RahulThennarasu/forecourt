@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import html
+import json
 import logging
 import time
 from pathlib import Path
@@ -25,7 +26,7 @@ import db
 import ws
 from conversation import build_system_prompt, call_claude
 from data import LOCAL_CONTEXT, lookup_guest
-from guard import check_leaks
+from guard import redact_leaks
 from synthesis import synthesize
 
 # Used when the leak guard fires: deflect rather than risk a surveillance-feel
@@ -250,22 +251,38 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
     history.append({"role": "assistant", "content": raw})
 
     # Hard backstop: scan say_text for profile facts the guest hasn't given a
-    # hook for. On any leak, replace with a deflection and drop all actions
-    # (the offer was likely built around the leaked fact). The leaky raw
-    # response is also rewritten in history so the next turn doesn't anchor
-    # on its bad output.
-    leaks = check_leaks(say_text, guest, history)
+    # hook for. Two outcomes:
+    #   - core leak (surveillance-feel: origin city, flight number, past room,
+    #     anniversary unprompted, etc.): redact_leaks returns None — replace
+    #     the entire reply with a deflection and drop all actions, since the
+    #     offer was likely built around the leaked fact.
+    #   - side leak only (dietary, wine_pref): redact_leaks returns the same
+    #     reply with the offending word removed in place ("vegetarian dinner"
+    #     -> "dinner"). The anticipatory offer survives and we keep the
+    #     associated actions; only the leaky word is silenced.
+    cleaned, leaks = redact_leaks(say_text, guest, history)
     if leaks:
-        logger.warning(
-            "profile_leak sid=%s labels=%s leaked_text=%r",
-            call_sid, leaks, say_text,
-        )
-        say_text = SAFE_DEFLECTION
-        actions = []
-        history[-1] = {
-            "role": "assistant",
-            "content": f"<say>{SAFE_DEFLECTION}</say><actions>[]</actions>",
-        }
+        if cleaned is None:
+            logger.warning(
+                "profile_leak_core sid=%s labels=%s leaked_text=%r",
+                call_sid, leaks, say_text,
+            )
+            say_text = SAFE_DEFLECTION
+            actions = []
+            history[-1] = {
+                "role": "assistant",
+                "content": f"<say>{SAFE_DEFLECTION}</say><actions>[]</actions>",
+            }
+        else:
+            logger.warning(
+                "profile_leak_redacted sid=%s labels=%s before=%r after=%r",
+                call_sid, leaks, say_text, cleaned,
+            )
+            say_text = cleaned
+            history[-1] = {
+                "role": "assistant",
+                "content": f"<say>{cleaned}</say><actions>{json.dumps(actions)}</actions>",
+            }
         # Visibility on the dashboard — staff should know the guard caught it.
         asyncio.create_task(ws.broadcast({
             "type": "leak_guard",
