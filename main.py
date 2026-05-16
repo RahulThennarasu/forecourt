@@ -1,47 +1,85 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import PlainTextResponse
-from html import escape
-from urllib.parse import parse_qs
+"""FastAPI app entrypoint for Threshold.
 
-from data import load_guests_from_db, lookup_guest, seed_tanaka_profile
+Boot order at startup:
+  1. db.init_db()              — ensure SQLite schema exists
+  2. data.seed_tanaka_profile() — insert demo guest if missing
+  3. data.load_guests_from_db() — populate in-memory GUESTS dict
+  4. Verify audio/opening_tanaka.mp3 exists (log error if not — do NOT generate)
+  5. Log one-line summary
 
-app = FastAPI()
+After startup the hot path is purely in-memory:
+  phone → lookup_guest → build_system_prompt → Claude → ElevenLabs → Twilio.
+SQLite is never read during a turn (CLAUDE.md latency budget).
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.staticfiles import StaticFiles
+
+import db
+import ws
+from data import load_guests_from_db, seed_tanaka_profile
+from voice import router as voice_router
+
+load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="threshold")
+
+# Serve cached audio (opening hook MP3s, fake-live offer fallback) under /audio.
+# Twilio dereferences these public URLs via the ngrok tunnel.
+AUDIO_DIR = Path("audio")
+AUDIO_DIR.mkdir(exist_ok=True)
+app.mount("/audio", StaticFiles(directory=str(AUDIO_DIR)), name="audio")
+
+app.include_router(voice_router)
 
 
 @app.on_event("startup")
 async def startup() -> None:
+    db.init_db()
     seed_tanaka_profile()
-    load_guests_from_db()
+    n = load_guests_from_db()
+    demo = os.environ.get("DEMO_MODE", "false").strip().lower() == "true"
+    logger.info(
+        "Loaded %d guest profiles into memory. Demo mode: %s.",
+        n,
+        "true" if demo else "false",
+    )
+
+    hook = AUDIO_DIR / "opening_tanaka.mp3"
+    if not hook.exists():
+        logger.error(
+            "Missing %s — generate it before the demo (separate ElevenLabs task). "
+            "Calls will play nothing until this is fixed.",
+            hook,
+        )
 
 
 @app.get("/")
-async def root():
+async def root() -> dict:
     return {"status": "ok", "service": "threshold"}
 
 
-async def _twilio_param(request: Request, name: str) -> str:
-    if name in request.query_params:
-        return request.query_params[name]
-
-    body = await request.body()
-    parsed = parse_qs(body.decode("utf-8"))
-    return parsed.get(name, [""])[0]
-
-
-@app.post("/voice")
-@app.get("/voice")
-async def voice(request: Request):
-    from_number = await _twilio_param(request, "From")
-    guest = lookup_guest(from_number)
-
-    if guest:
-        greeting = f"Welcome back, {guest['name']}. The pipe is working. Goodbye."
-    else:
-        greeting = "Welcome to Rosewood Sand Hill. The pipe is working. Goodbye."
-
-    twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Say voice="Polly.Joanna">{escape(greeting)}</Say>
-    <Hangup/>
-</Response>"""
-    return PlainTextResponse(content=twiml, media_type="application/xml")
+@app.websocket("/ws")
+async def ws_endpoint(websocket: WebSocket) -> None:
+    await ws.register(websocket)
+    try:
+        while True:
+            # Dashboard is receive-only; receive_text() blocks until disconnect.
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        ws.unregister(websocket)
