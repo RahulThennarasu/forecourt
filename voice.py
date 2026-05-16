@@ -44,7 +44,7 @@ router = APIRouter()
 # can still find the call.
 active_calls: dict[str, dict] = {}
 
-OPENING_HOOK_URL = "/audio/opening_tanaka.mp3"
+OPENING_HOOK_URL = "/audio/opening_meyer.mp3"
 RESPOND_ACTION = "/respond"
 
 # speechTimeout="1" — fixed 1s of trailing silence before Twilio POSTs to

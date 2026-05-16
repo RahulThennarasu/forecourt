@@ -86,20 +86,27 @@ async def synthesize(text: str, out_path: Path) -> Path:
     return out_path
 
 
-async def ensure_opening_hook(audio_dir: Path) -> Path | None:
-    """Generate audio/opening_tanaka.mp3 if missing. Best-effort.
+OPENING_HOOK_FILENAME = "opening_meyer.mp3"
 
-    Returns the path on success, None on failure (key missing, API error, etc.).
-    Caller logs the outcome — we do not want startup to crash if ElevenLabs is
-    down.
+
+async def ensure_opening_hook(audio_dir: Path) -> Path | None:
+    """Generate audio/opening_meyer.mp3 if missing. Best-effort.
+
+    The opening greets the active demo guest (Mr. Meyer) by name and is
+    rendered through ElevenLabs so callers hear the same warm voice as the
+    rest of the conversation — never Twilio's default Polly fallback.
+
+    Returns the path on success, None on failure (key missing, API error,
+    etc.). Caller logs the outcome — we do not want startup to crash if
+    ElevenLabs is down.
     """
-    hook = audio_dir / "opening_tanaka.mp3"
+    hook = audio_dir / OPENING_HOOK_FILENAME
     if hook.exists():
         return hook
     if not os.environ.get("ELEVENLABS_API_KEY"):
         return None
     text = (
-        "Good evening, Mr. Tanaka. This is the Rosewood Sand Hill arrival "
+        "Good evening, Mr. Meyer. This is the Rosewood Sand Hill arrival "
         "concierge. How can I help you prepare for your stay?"
     )
     try:

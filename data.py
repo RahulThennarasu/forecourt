@@ -69,11 +69,16 @@ def _tanaka_profile() -> dict:
     }
 
 def _philip_profile() -> dict:
-    """Philip Meyer demo profile (used for the 'philip' demo script)."""
-    phone = os.environ.get("DEMO_PHILIP_PHONE_NUMBER", "+16505550142")
+    """Philip Meyer demo profile — the active demo guest.
+
+    Pinned to DEMO_PHONE_NUMBER (the same env var the legacy Tanaka demo used)
+    so existing Twilio webhook configurations keep working. The opening hook
+    MP3 generated at startup greets this guest by name.
+    """
+    phone = os.environ.get("DEMO_PHONE_NUMBER", "+14086100377")
     return {
         "phone": phone,
-        "name": "Philip Meyer",
+        "name": "Mr. Meyer",
         "title": "Regional Vice President & Managing Director",
         "room_type": "Santa Cruz Mountain-View Suite (Presidents Wing)",
         "notable": "Corporate executive guest · deeply familiar with Sand Hill ops",
@@ -122,17 +127,18 @@ def seed_tanaka_profile(db_path: str = DB_PATH) -> None:
         conn.commit()
 
 def seed_philip_profile(db_path: str = DB_PATH) -> None:
-    """Insert the Philip Meyer demo guest into SQLite if not already present."""
+    """Insert/overwrite the Philip Meyer demo guest in SQLite.
+
+    Uses INSERT OR REPLACE because Philip now shares the demo phone with the
+    legacy Tanaka seed — without overwrite, an existing Tanaka row at the same
+    phone would shadow him and the matched-call path would still greet
+    "Mr. Tanaka". Idempotent on repeat startups.
+    """
     profile = _philip_profile()
     with sqlite3.connect(db_path) as conn:
         _ensure_guests_table(conn)
-        already = conn.execute(
-            "SELECT 1 FROM guests WHERE phone = ?", (profile["phone"],)
-        ).fetchone()
-        if already:
-            return
         conn.execute(
-            "INSERT INTO guests (phone, profile_json) VALUES (?, ?)",
+            "INSERT OR REPLACE INTO guests (phone, profile_json) VALUES (?, ?)",
             (profile["phone"], json.dumps(profile)),
         )
         conn.commit()
@@ -154,7 +160,7 @@ def _demo_mode() -> bool:
 
 
 def lookup_guest(phone_number: str) -> dict | None:
-    """Exact match first; in DEMO_MODE, fall back to the Tanaka profile. None on miss.
+    """Exact match first; in DEMO_MODE, fall back to Philip Meyer. None on miss.
 
     Priority: exact match → demo-mode fallback → None.
 
@@ -165,10 +171,10 @@ def lookup_guest(phone_number: str) -> dict | None:
     if hit is not None:
         return hit
     if _demo_mode():
-        which = os.environ.get("DEMO_GUEST", "tanaka").strip().lower()
-        if which == "philip":
-            demo_phone = os.environ.get("DEMO_PHILIP_PHONE_NUMBER", "+16505550142")
-            return GUESTS.get(demo_phone) or _philip_profile()
+        which = os.environ.get("DEMO_GUEST", "philip").strip().lower()
+        if which == "tanaka":
+            demo_phone = os.environ.get("DEMO_PHONE_NUMBER", "+14086100377")
+            return GUESTS.get(demo_phone) or _tanaka_profile()
         demo_phone = os.environ.get("DEMO_PHONE_NUMBER", "+14086100377")
-        return GUESTS.get(demo_phone) or _tanaka_profile()
+        return GUESTS.get(demo_phone) or _philip_profile()
     return None

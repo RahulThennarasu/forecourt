@@ -2,9 +2,10 @@
 
 Boot order at startup:
   1. db.init_db()              — ensure SQLite schema exists
-  2. data.seed_tanaka_profile() — insert demo guest if missing
+  2. data.seed_philip_profile() — insert/overwrite the active demo guest
+                                 (Mr. Meyer) at DEMO_PHONE_NUMBER
   3. data.load_guests_from_db() — populate in-memory GUESTS dict
-  4. Verify audio/opening_tanaka.mp3 exists (log error if not — do NOT generate)
+  4. Verify audio/opening_meyer.mp3 exists; auto-generate via ElevenLabs if not
   5. Log one-line summary
 
 After startup the hot path is purely in-memory:
@@ -26,8 +27,8 @@ from fastapi.staticfiles import StaticFiles
 
 import db
 import ws
-from data import load_guests_from_db, seed_philip_profile, seed_tanaka_profile
-from synthesis import ensure_opening_hook
+from data import load_guests_from_db, seed_philip_profile
+from synthesis import OPENING_HOOK_FILENAME, ensure_opening_hook
 from voice import router as voice_router
 
 load_dotenv()
@@ -81,7 +82,6 @@ async def get_call(call_sid: str) -> dict:
 @app.on_event("startup")
 async def startup() -> None:
     db.init_db()
-    seed_tanaka_profile()
     seed_philip_profile()
     n = load_guests_from_db()
     demo = os.environ.get("DEMO_MODE", "false").strip().lower() == "true"
@@ -91,7 +91,7 @@ async def startup() -> None:
         "true" if demo else "false",
     )
 
-    hook = AUDIO_DIR / "opening_tanaka.mp3"
+    hook = AUDIO_DIR / OPENING_HOOK_FILENAME
     if not hook.exists():
         logger.info("opening hook missing — attempting auto-generation via ElevenLabs")
         generated = await ensure_opening_hook(AUDIO_DIR)
