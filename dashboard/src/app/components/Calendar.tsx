@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import rosewoodFacilities from "../../../../rosewood_facilities.json";
 
 type View = "month" | "week" | "day";
 
@@ -32,25 +33,230 @@ const EVENT_STYLES: Record<CalEvent["type"], { bg: string; text: string; dot: st
   spa:    { bg: "#E8E9F2", text: "#3A3D6B", dot: "#5A5EA0", label: "Spa"       },
 };
 
+const ROSEWOOD_NAME =
+  (rosewoodFacilities as any)?.hotel_name || "Rosewood Sand Hill";
+
+const FACILITIES = (rosewoodFacilities as any)?.facilities || {};
+const MADERA = FACILITIES?.dining_and_culinary?.find((f: any) => f?.name === "Madera");
+const MADERA_BAR = FACILITIES?.dining_and_culinary?.find((f: any) => f?.name === "Madera Bar");
+const BICI = FACILITIES?.dining_and_culinary?.find((f: any) => f?.name === "Bici Coffee");
+const POOL_DINING = FACILITIES?.dining_and_culinary?.find((f: any) => (f?.name || "").includes("Pool Bar"));
+const ASAYA = FACILITIES?.wellness_spa_and_beauty?.find((f: any) => (f?.name || "").includes("Asaya"));
+const FITNESS = FACILITIES?.wellness_spa_and_beauty?.find((f: any) => (f?.name || "").includes("Fitness Center"));
+const POOL = FACILITIES?.pools_and_outdoor_relaxation?.find((f: any) => (f?.name || "").includes("Outdoor Heated Pool"));
+const EVENTS_AND_GARDENS = FACILITIES?.event_venues_and_gardens?.find((f: any) => (f?.name || "").includes("Vista Lawn"));
+const TRANSPORT = FACILITIES?.personalized_programs_and_guest_amenities?.find((f: any) => (f?.name || "").includes("Mercedes-Benz"));
+
+function mkId(prefix: string, i: number) {
+  return `${prefix}${i}`;
+}
+
 // All events: those with startHour are timed; those without are all-day/multi-day
+// Rosewood-specific programming + stays around May 2026.
 const EVENTS: CalEvent[] = [
-  // Multi-day / all-day stays
-  { id: "e1",  title: "Harrington VIP Suite",   start: "2026-05-07", end: "2026-05-10", type: "vip",    detail: "Board retreat · VIP Suite" },
-  { id: "e2",  title: "Chen — Spa Retreat",     start: "2026-05-12", end: "2026-05-14", type: "spa",    detail: "Spa Suite · Wellness retreat" },
-  { id: "e3",  title: "Williams Family Stay",   start: "2026-05-14", end: "2026-05-17", type: "stay",   detail: "Garden Villa · Annual family stay" },
-  { id: "e4",  title: "Tanaka — Anniversary",   start: "2026-05-16", end: "2026-05-18", type: "vip",    detail: "Corner Suite · Anniversary weekend" },
-  { id: "e6",  title: "Sense Spa Block",        start: "2026-05-19", end: "2026-05-20", type: "spa",    detail: "Morning treatments reserved" },
-  { id: "e7",  title: "Park — Garden Suite",    start: "2026-05-22", end: "2026-05-25", type: "stay",   detail: "Garden Suite · First visit" },
-  { id: "e8",  title: "Memorial Day House",     start: "2026-05-25", end: "2026-05-27", type: "stay",   detail: "Full property · Holiday weekend" },
-  { id: "e9",  title: "Hendricks Arrival",      start: "2026-05-30", end: "2026-06-01", type: "stay",   detail: "Deluxe Room · Late arrival" },
-  // Timed events (single-day, shown in time grid on week view)
-  { id: "e10", title: "Harrington Check-in",    start: "2026-05-07", end: "2026-05-07", type: "vip",    detail: "VIP Suite · Board retreat", startHour: 15, endHour: 16 },
-  { id: "e11", title: "Chen Spa Treatment",     start: "2026-05-13", end: "2026-05-13", type: "spa",    detail: "Sense Spa · Morning session", startHour: 9, endHour: 11 },
-  { id: "e12", title: "Tanaka Arrival",         start: "2026-05-16", end: "2026-05-16", type: "vip",    detail: "Corner Suite · ETA 4:32 PM", startHour: 17, endHour: 18 },
-  { id: "e5",  title: "Madera Dinner",          start: "2026-05-16", end: "2026-05-16", type: "dining", detail: "Patio table · Sancerre reserved", startHour: 19, endHour: 21 },
-  { id: "e13", title: "Sense Spa Morning",      start: "2026-05-19", end: "2026-05-19", type: "spa",    detail: "Treatment block · 3 hours", startHour: 9, endHour: 12 },
-  { id: "e14", title: "Park Check-in",          start: "2026-05-22", end: "2026-05-22", type: "stay",   detail: "Garden Suite · First visit", startHour: 15, endHour: 16 },
-  { id: "e15", title: "Hendricks Late Arrival", start: "2026-05-30", end: "2026-05-30", type: "stay",   detail: "Deluxe Room · Late arrival", startHour: 22, endHour: 23 },
+  // Stays / VIPs
+  {
+    id: "stay-1",
+    title: "Tanaka — Anniversary Weekend",
+    start: "2026-05-16",
+    end: "2026-05-18",
+    type: "vip",
+    detail: `${ROSEWOOD_NAME} · Corner Suite · Anniversary weekend`,
+  },
+  {
+    id: "stay-2",
+    title: "Harrington — Board Retreat",
+    start: "2026-05-07",
+    end: "2026-05-10",
+    type: "vip",
+    detail: `${ROSEWOOD_NAME} · Executive hosts · Quiet work blocks reserved`,
+  },
+  {
+    id: "stay-3",
+    title: "Williams Family Stay",
+    start: "2026-05-14",
+    end: "2026-05-17",
+    type: "stay",
+    detail: `${ROSEWOOD_NAME} · Family amenities · Rose Buds program requested`,
+  },
+  {
+    id: "stay-4",
+    title: "Park — First Visit",
+    start: "2026-05-22",
+    end: "2026-05-25",
+    type: "stay",
+    detail: `${ROSEWOOD_NAME} · Garden Suite · Welcome amenity + local itinerary`,
+  },
+
+  // Key arrivals / check-in touchpoints
+  {
+    id: "vip-arr-1",
+    title: "Tanaka Arrival",
+    start: "2026-05-16",
+    end: "2026-05-16",
+    type: "vip",
+    detail: "Town car standby · VIP welcome · Luggage to suite",
+    startHour: 17,
+    endHour: 18,
+  },
+  {
+    id: "vip-arr-2",
+    title: "Harrington Check-in",
+    start: "2026-05-07",
+    end: "2026-05-07",
+    type: "vip",
+    detail: "Pre-keyed suite · Meeting room tech check",
+    startHour: 15,
+    endHour: 16,
+  },
+  {
+    id: "stay-arr-1",
+    title: "Park Check-in",
+    start: "2026-05-22",
+    end: "2026-05-22",
+    type: "stay",
+    detail: "Welcome tour · E-bike availability check",
+    startHour: 15,
+    endHour: 16,
+  },
+
+  // Dining (Rosewood facilities)
+  {
+    id: "din-1",
+    title: `${MADERA?.name || "Madera"} Dinner`,
+    start: "2026-05-16",
+    end: "2026-05-16",
+    type: "dining",
+    detail: "Outdoor terrace preference · Wine service note · Fireside seating if cool",
+    startHour: 19,
+    endHour: 21,
+  },
+  {
+    id: "din-2",
+    title: `${BICI?.name || "Bici Coffee"} — Morning Pickup`,
+    start: "2026-05-17",
+    end: "2026-05-17",
+    type: "dining",
+    detail: "House pastries · Espresso drinks · Early start option",
+    startHour: 8,
+    endHour: 8.5,
+  } as any,
+  {
+    id: "din-3",
+    title: "Afternoon Tea (Pool Bar & Grill)",
+    start: "2026-05-17",
+    end: "2026-05-17",
+    type: "dining",
+    detail:
+      POOL_DINING?.afternoon_tea ||
+      "Reimagined tea service · Premium loose-leaf · Chocolate-infused pastries",
+    startHour: 15,
+    endHour: 16.5,
+  } as any,
+  // Friday nights at the bar (weekly programming)
+  ...[
+    "2026-05-08",
+    "2026-05-15",
+    "2026-05-22",
+    "2026-05-29",
+  ].map((d, i) => ({
+    id: mkId("bar-", i + 1),
+    title: `${MADERA_BAR?.name || "Madera Bar"} — Friday Night`,
+    start: d,
+    end: d,
+    type: "dining" as const,
+    detail:
+      MADERA_BAR?.entertainment ||
+      "Live jazz or DJ vinyl set · Terrace fireside seating",
+    startHour: 20,
+    endHour: 22,
+  })),
+
+  // Wellness (Asaya, Fitness/Motion)
+  {
+    id: "spa-1",
+    title: `${ASAYA?.name || "Asaya Spa"} — Couples Reset`,
+    start: "2026-05-17",
+    end: "2026-05-17",
+    type: "spa",
+    detail:
+      ASAYA?.amenities ||
+      "Steam/sauna + outdoor whirlpool · Pre-treatment arrival 20 min",
+    startHour: 10,
+    endHour: 12,
+  },
+  {
+    id: "spa-2",
+    title: `${ASAYA?.name || "Asaya Spa"} — Skin Solutions`,
+    start: "2026-05-19",
+    end: "2026-05-19",
+    type: "spa",
+    detail: ASAYA?.services || "Advanced skin solutions · Restorative body therapy",
+    startHour: 9,
+    endHour: 10.5,
+  } as any,
+  ...[
+    "2026-05-16",
+    "2026-05-23",
+    "2026-05-30",
+  ].map((d, i) => ({
+    id: mkId("yoga-", i + 1),
+    title: "Lawn Yoga (Motion Studio)",
+    start: d,
+    end: d,
+    type: "spa" as const,
+    detail: FITNESS?.classes || "Saturday lawn yoga · Pilates · Sound bath sessions",
+    startHour: 9,
+    endHour: 10,
+  })),
+
+  // Outdoor leisure (pool / cabanas)
+  {
+    id: "pool-1",
+    title: "Poolside Cabana Hold",
+    start: "2026-05-16",
+    end: "2026-05-16",
+    type: "stay",
+    detail: `${POOL?.hours || "Daily 8:00 AM – 10:00 PM"} · Butler service · Pool Bar delivery`,
+    startHour: 12,
+    endHour: 15,
+  },
+
+  // Events (Vista Lawn + ballrooms)
+  {
+    id: "evt-1",
+    title: "Vista Lawn — Tech Runthrough",
+    start: "2026-05-08",
+    end: "2026-05-08",
+    type: "vip",
+    detail: EVENTS_AND_GARDENS?.description || "Indoor/outdoor event spaces · Presentation technology",
+    startHour: 14,
+    endHour: 15,
+  },
+  {
+    id: "evt-2",
+    title: "Ballrooms A & B — Evening Reception",
+    start: "2026-05-09",
+    end: "2026-05-09",
+    type: "vip",
+    detail: "16-foot vaulted ceilings · AV/lighting cues · Welcome beverage service",
+    startHour: 18,
+    endHour: 21,
+  },
+
+  // Transport / concierge privileges
+  {
+    id: "tx-1",
+    title: "Mercedes-Benz Driving Experience",
+    start: "2026-05-18",
+    end: "2026-05-18",
+    type: "vip",
+    detail:
+      TRANSPORT?.test_drives ||
+      "Reserve a Mercedes-Benz for a scenic coastal drive · Front office coordination",
+    startHour: 11,
+    endHour: 13,
+  },
 ];
 
 const ALL_DAY_EVENTS = EVENTS.filter(ev => ev.startHour === undefined);
@@ -71,12 +277,26 @@ function formatDateRange(start: string, end: string) {
 }
 
 function fmtHour(h: number) {
-  if (h === 0 || h === 24) return "12 AM";
-  if (h === 12) return "12 PM";
-  return h < 12 ? `${h} AM` : `${h - 12} PM`;
+  const hours = Math.floor(h);
+  const minutes = Math.round((h - hours) * 60);
+  const hh = (hours + Math.floor(minutes / 60)) % 24;
+  const mm = minutes % 60;
+  const isPM = hh >= 12;
+  const displayH = hh % 12 === 0 ? 12 : hh % 12;
+  const displayM = mm === 0 ? "" : `:${String(mm).padStart(2, "0")}`;
+  return `${displayH}${displayM} ${isPM ? "PM" : "AM"}`;
 }
 
 const TODAY_KEY = dateKey(new Date());
+
+function escapeHtml(s: string) {
+  return s
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
 function getWeekDays(date: Date): Date[] {
   const start = new Date(date);
@@ -241,11 +461,204 @@ export function Calendar() {
   const [selected, setSelected]   = useState("2026-05-16");
   const [dir, setDir]             = useState(1);
   const [tooltip, setTooltip]     = useState<TooltipState | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const handleHover = useCallback((ev: CalEvent, x: number, y: number) => {
     setTooltip({ event: ev, x, y });
   }, []);
   const handleLeave = useCallback(() => setTooltip(null), []);
+
+  function formatSheetDate(date: Date) {
+    return date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  }
+
+  function getDaySheetData(date: Date) {
+    const dayEvents = getEventsForDay(date).slice().sort((a, b) => {
+      const ah = a.startHour ?? -1;
+      const bh = b.startHour ?? -1;
+      if (ah !== bh) return ah - bh;
+      return a.title.localeCompare(b.title);
+    });
+
+    const sections: Array<{ title: string; items: CalEvent[] }> = [
+      { title: "Arrivals / Stays", items: dayEvents.filter((e) => e.type === "vip" || e.type === "stay") },
+      { title: "Dining", items: dayEvents.filter((e) => e.type === "dining") },
+      { title: "Spa & Wellness", items: dayEvents.filter((e) => e.type === "spa") },
+    ];
+
+    if (sections.every((s) => s.items.length === 0)) {
+      sections.push({ title: "Schedule", items: dayEvents });
+    }
+
+    return { dayEvents, sections };
+  }
+
+  function buildSheetText(date: Date) {
+    const { sections } = getDaySheetData(date);
+    const lines: string[] = [];
+    lines.push(`${ROSEWOOD_NAME} — Day Sheet`);
+    lines.push(formatSheetDate(date));
+    lines.push("");
+    for (const s of sections) {
+      if (s.items.length === 0) continue;
+      lines.push(s.title);
+      for (const ev of s.items) {
+        const time = ev.startHour !== undefined ? `${fmtHour(ev.startHour)}–${fmtHour(ev.endHour!)}` : "all day";
+        lines.push(`- ${time} · ${ev.title}${ev.detail ? ` — ${ev.detail}` : ""}`);
+      }
+      lines.push("");
+    }
+    return lines.join("\n").trim();
+  }
+
+  function buildSheetHtml(date: Date) {
+    const { sections } = getDaySheetData(date);
+    const header = `${escapeHtml(ROSEWOOD_NAME)} — Day Sheet`;
+    const sub = escapeHtml(formatSheetDate(date));
+
+    const blocks = sections
+      .filter((s) => s.items.length > 0)
+      .map((s) => {
+        const items = s.items
+          .map((ev) => {
+            const time = ev.startHour !== undefined ? `${fmtHour(ev.startHour)} – ${fmtHour(ev.endHour!)}` : "All day";
+            return `
+              <div class="item">
+                <div class="time">${escapeHtml(time)}</div>
+                <div class="main">
+                  <div class="title">${escapeHtml(ev.title)}</div>
+                  ${ev.detail ? `<div class="detail">${escapeHtml(ev.detail)}</div>` : ""}
+                </div>
+              </div>
+            `;
+          })
+          .join("");
+        return `
+          <section class="section">
+            <h2>${escapeHtml(s.title)}</h2>
+            ${items}
+          </section>
+        `;
+      })
+      .join("");
+
+    return `
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>${header}</title>
+          <style>
+            :root { --fg:#111; --muted:#666; --border:#e6e6e6; --green:#0a3622; --cream:#faf8f3; }
+            * { box-sizing: border-box; }
+            html, body { width: 100%; height: 100%; }
+            body {
+              margin: 0;
+              background: var(--cream);
+              color: var(--fg);
+              font-family: "Austin", "Austin Text", "Austin Roman", "Austin Display", "Ivar Text", "Canela", "Cormorant Garamond", Georgia, serif;
+              font-weight: 300;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .page { padding: 44px 52px; }
+            .card {
+              background: #fff;
+              border: 1px solid var(--border);
+              border-radius: 16px;
+              padding: 28px 28px 24px;
+              box-shadow: 0 10px 30px rgba(17, 24, 39, 0.06);
+              width: 100%;
+              max-width: 920px;
+              margin: 0 auto;
+            }
+            .brand { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+            .brand h1 { margin:0; font-size: 20px; letter-spacing: 0.01em; font-weight: 300; }
+            .brand .sub { margin-top: 8px; color: var(--muted); font-size: 12px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+            .badge { background: var(--green); color:#fff; padding: 7px 12px; border-radius: 999px; font-size: 12px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+            .section { margin-top: 22px; }
+            .section h2 {
+              margin: 0 0 10px;
+              font-size: 11px;
+              text-transform: uppercase;
+              letter-spacing: 0.14em;
+              color: var(--muted);
+              font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+            }
+            .item { display:flex; gap: 14px; padding: 10px 0; border-top: 1px solid #f2f2f2; }
+            .item:first-of-type { border-top: 1px solid var(--border); }
+            .time { width: 120px; color: var(--muted); font-size: 12px; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+            .title { font-size: 15px; line-height: 1.25; }
+            .detail { margin-top: 5px; color: var(--muted); font-size: 12px; line-height: 1.4; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+            @media print {
+              @page { margin: 18mm; }
+              body { background: #fff; }
+              .page { padding: 0; }
+              .card {
+                border: none;
+                border-radius: 0;
+                box-shadow: none;
+                padding: 0;
+                max-width: none;
+                margin: 0;
+              }
+              .badge { background: var(--green) !important; color: #fff !important; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="page">
+            <div class="card">
+              <div class="brand">
+                <div>
+                  <h1>${header}</h1>
+                  <div class="sub">${sub}</div>
+                </div>
+                <div class="badge">Rosewood</div>
+              </div>
+              ${blocks}
+            </div>
+          </div>
+        </body>
+      </html>
+    `.trim();
+  }
+
+  async function sendItinerary() {
+    const text = buildSheetText(focusDate);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // ignore
+    }
+    setSheetOpen(true);
+  }
+
+  function printDaySheet() {
+    const html = buildSheetHtml(focusDate);
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, "_blank", "noopener,noreferrer,width=900,height=800");
+    if (!w) return;
+    const cleanup = () => {
+      try { URL.revokeObjectURL(url); } catch {}
+    };
+    const t = setInterval(() => {
+      try {
+        if (w.document?.readyState === "complete") {
+          clearInterval(t);
+          w.focus();
+          // allow layout before printing
+          setTimeout(() => {
+            try { w.print(); } finally { cleanup(); }
+          }, 250);
+        }
+      } catch {
+        // cross-origin during initial navigation; ignore until ready
+      }
+    }, 150);
+  }
 
   function navigate(delta: number) {
     setDir(delta);
@@ -366,12 +779,31 @@ export function Calendar() {
     }
     const hours = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i);
 
-    // Group timed events per day (to handle same-day overlap side-by-side)
+    // Group timed events per day
     const timedByDay: Record<string, CalEvent[]> = {};
     timedInWeek.forEach(ev => {
       if (!timedByDay[ev.start]) timedByDay[ev.start] = [];
       timedByDay[ev.start].push(ev);
     });
+
+    // Assign non-overlapping lanes per day so events don't all get squeezed.
+    function computeLanes(dayEvents: CalEvent[]) {
+      const sorted = [...dayEvents].sort((a, b) => (a.startHour! - b.startHour!) || (a.endHour! - b.endHour!));
+      const lanes: CalEvent[][] = [];
+      const laneForId = new Map<string, number>();
+
+      for (const ev of sorted) {
+        let laneIdx = lanes.findIndex((lane) => (lane[lane.length - 1]?.endHour ?? -Infinity) <= ev.startHour!);
+        if (laneIdx === -1) {
+          laneIdx = lanes.length;
+          lanes.push([]);
+        }
+        lanes[laneIdx].push(ev);
+        laneForId.set(ev.id, laneIdx);
+      }
+
+      return { lanesCount: lanes.length || 1, laneForId };
+    }
 
     return (
       <div className="flex-1 flex flex-col border border-[#E8E4DA] overflow-hidden" style={{ borderRadius: 8 }}>
@@ -461,15 +893,18 @@ export function Calendar() {
               {days.map((day, colIdx) => {
                 const k = dateKey(day);
                 const dayEvents = timedByDay[k] ?? [];
+                const { lanesCount, laneForId } = computeLanes(dayEvents);
                 const colW = 100 / 7;
 
                 return dayEvents.map((ev, evIdx) => {
-                  const totalInCol = dayEvents.length;
+                  const totalInCol = lanesCount;
+                  const laneIdx = laneForId.get(ev.id) ?? 0;
                   const evW = (colW / totalInCol);
-                  const left = colW * colIdx + evW * evIdx;
+                  const left = colW * colIdx + evW * laneIdx;
                   const top = (ev.startHour! - firstHour) * HOUR_H;
                   const height = (ev.endHour! - ev.startHour!) * HOUR_H;
                   const s = EVENT_STYLES[ev.type];
+                  const isNarrow = evW < 7.5;
 
                   return (
                     <div key={ev.id}
@@ -489,13 +924,43 @@ export function Calendar() {
                         borderLeft: `2px solid ${s.dot}`,
                       }}
                     >
-                      <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.6875rem", color: s.text, lineHeight: 1.35, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                        {ev.title}
-                      </p>
-                      {height >= 42 && (
-                        <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.5625rem", color: s.text, opacity: 0.6, marginTop: 3, letterSpacing: "0.03em" }}>
-                          {fmtHour(ev.startHour!)} – {fmtHour(ev.endHour!)}
-                        </p>
+                      {isNarrow ? (
+                        <div className="h-full flex items-center justify-center">
+                          <div className="w-2 h-2 rounded-full" style={{ background: s.text, opacity: 0.9 }} />
+                        </div>
+                      ) : (
+                        <>
+                          <p
+                            className="truncate"
+                            style={{
+                              fontFamily: "General Sans, sans-serif",
+                              fontSize: "0.6875rem",
+                              color: s.text,
+                              lineHeight: 1.25,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {ev.title}
+                          </p>
+                          {height >= 38 && (
+                            <p
+                              className="truncate"
+                              style={{
+                                fontFamily: "General Sans, sans-serif",
+                                fontSize: "0.5625rem",
+                                color: s.text,
+                                opacity: 0.65,
+                                marginTop: 3,
+                                letterSpacing: "0.03em",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {fmtHour(ev.startHour!)} – {fmtHour(ev.endHour!)}
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
                   );
@@ -524,9 +989,27 @@ export function Calendar() {
               {focusDate.getDate()}
             </p>
           </div>
-          <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.8125rem", color: "#AAA", marginBottom: 4 }}>
-            {MONTHS[focusDate.getMonth()]} {focusDate.getFullYear()}
-          </p>
+          <div className="flex items-end gap-4">
+            <div className="flex gap-2">
+              <button
+                onClick={sendItinerary}
+                className="px-3 py-1 border border-[#E0DBD0] hover:bg-[#F7F5F0] transition-colors text-[#666]"
+                style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.75rem", letterSpacing: "0.02em", borderRadius: 3 }}
+              >
+                Send itinerary
+              </button>
+              <button
+                onClick={printDaySheet}
+                className="px-3 py-1 border border-[#E0DBD0] hover:bg-[#F7F5F0] transition-colors text-[#666]"
+                style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.75rem", letterSpacing: "0.02em", borderRadius: 3 }}
+              >
+                Print day sheet
+              </button>
+            </div>
+            <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.8125rem", color: "#AAA", marginBottom: 4 }}>
+              {MONTHS[focusDate.getMonth()]} {focusDate.getFullYear()}
+            </p>
+          </div>
         </div>
         <div className="px-8 py-6">
           {dayEvents.length === 0 ? (
@@ -619,6 +1102,78 @@ export function Calendar() {
 
       {/* Tooltip */}
       {tooltip && <EventTooltip tooltip={tooltip} />}
+
+      {/* Day sheet modal (copy/share preview) */}
+      <AnimatePresence>
+        {sheetOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50"
+            style={{ background: "rgba(0,0,0,0.35)" }}
+            onClick={() => setSheetOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ duration: 0.16 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white border border-[#E8E4DA] shadow-xl rounded-lg"
+              style={{ width: 720, maxWidth: "calc(100vw - 48px)", margin: "8vh auto", padding: 20 }}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p style={{ fontFamily: "Cormorant Garamond, Georgia, serif", fontSize: "1.5rem", fontWeight: 300, color: "#1A1814", lineHeight: 1.1 }}>
+                    {ROSEWOOD_NAME}
+                  </p>
+                  <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.8125rem", color: "#888", marginTop: 6 }}>
+                    {formatSheetDate(focusDate)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSheetOpen(false)}
+                  className="px-3 py-1 border border-[#E0DBD0] hover:bg-[#F7F5F0] transition-colors text-[#666]"
+                  style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.75rem", letterSpacing: "0.02em", borderRadius: 3 }}
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="mt-4">
+                <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.6875rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#AAA", marginBottom: 8 }}>
+                  Copy / Share
+                </p>
+                <textarea
+                  readOnly
+                  value={buildSheetText(focusDate)}
+                  className="w-full border border-[#E8E4DA] rounded-md px-3 py-2"
+                  style={{ minHeight: 220, fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace", fontSize: "0.8125rem", color: "#1A1814" }}
+                />
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={async () => {
+                      try { await navigator.clipboard.writeText(buildSheetText(focusDate)); } catch {}
+                    }}
+                    className="px-3 py-1 border border-[#E0DBD0] hover:bg-[#F7F5F0] transition-colors text-[#666]"
+                    style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.75rem", letterSpacing: "0.02em", borderRadius: 3 }}
+                  >
+                    Copy
+                  </button>
+                  <button
+                    onClick={printDaySheet}
+                    className="px-3 py-1 border border-[#E0DBD0] hover:bg-[#F7F5F0] transition-colors text-[#666]"
+                    style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.75rem", letterSpacing: "0.02em", borderRadius: 3 }}
+                  >
+                    Print
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
