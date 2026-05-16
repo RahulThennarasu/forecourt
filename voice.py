@@ -223,6 +223,8 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
         "ts_seconds": guest_ts,
         "speech": speech,
     }))
+    # Persist for the history view. Fire-and-forget; never blocks the turn.
+    background.add_task(db.log_turn, call_sid, turn_n, "guest", speech, guest_ts)
 
     try:
         system_prompt = build_system_prompt(guest, LOCAL_CONTEXT)
@@ -244,6 +246,7 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
             "actions": [],
             "leaks": [],
         }))
+        background.add_task(db.log_turn, call_sid, turn_n, "agent", SAFE_DEFLECTION, fail_ts)
         return _twiml(
             f'<Say voice="Polly.Joanna">{html.escape(SAFE_DEFLECTION)}</Say><Hangup/>'
         )
@@ -324,6 +327,8 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
         "actions": actions,
         "leaks": leaks,
     }))
+    # Persist the agent side of the turn for the history view.
+    background.add_task(db.log_turn, call_sid, turn_n, "agent", say_text, agent_ts)
 
     # Synthesize the spoken reply. Fall back to Polly if ElevenLabs fails.
     # On a closing turn the trailing TwiML is just <Hangup/> — no <Gather>,

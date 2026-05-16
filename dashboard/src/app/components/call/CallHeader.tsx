@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Phone } from 'lucide-react';
+import { ArrowLeft, Phone } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface Props {
@@ -11,6 +11,11 @@ interface Props {
   // Wall-clock timestamp of call_ended. When set, the timer freezes at the
   // final duration and the status switches to "Call Ended".
   endedAtMs?: number | null;
+  // When provided, render a back arrow on the left. Used to leave the live
+  // call view to browse all past calls, or to leave a history view back to
+  // the list. Label is shown next to the arrow ("All calls" / "Back").
+  onBack?: () => void;
+  backLabel?: string;
 }
 
 function formatTime(seconds: number): string {
@@ -19,7 +24,14 @@ function formatTime(seconds: number): string {
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
-export function CallHeader({ guestName, phoneNumber, startedAtMs, endedAtMs = null }: Props) {
+export function CallHeader({
+  guestName,
+  phoneNumber,
+  startedAtMs,
+  endedAtMs = null,
+  onBack,
+  backLabel = 'All calls',
+}: Props) {
   // Tick every 250ms so the displayed second updates without drift — elapsed
   // is computed from wall clock each render, so a missed tick never lags.
   // When the call has ended, stop ticking (the value is frozen anyway).
@@ -44,8 +56,26 @@ export function CallHeader({ guestName, phoneNumber, startedAtMs, endedAtMs = nu
       className="flex-shrink-0 flex items-center justify-between px-8"
       style={{ height: '72px', background: '#FFFFFF' }}
     >
-      {/* Left: Status */}
-      <div className="flex items-center gap-2" style={{ minWidth: 140 }}>
+      {/* Left: Status (with optional back arrow) */}
+      <div className="flex items-center gap-3" style={{ minWidth: 180 }}>
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1.5 rounded-md hover:opacity-70 transition-opacity"
+            style={{
+              color: '#6E7E8C',
+              fontFamily: 'PP Neue Montreal, sans-serif',
+              fontSize: '0.75rem',
+              padding: '4px 6px',
+              marginLeft: -6,
+            }}
+            aria-label={backLabel}
+          >
+            <ArrowLeft className="w-3.5 h-3.5" style={{ strokeWidth: 1.75 }} />
+            <span>{backLabel}</span>
+          </button>
+        ) : null}
         {ended ? (
           <div
             className="w-1.5 h-1.5 rounded-full"

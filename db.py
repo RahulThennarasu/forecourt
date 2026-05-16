@@ -56,6 +56,23 @@ def init_db(db_path: str = DB_PATH) -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_calls_started_at ON calls(started_at DESC)"
         )
+        # Per-turn transcript records. Lets the dashboard replay a finished
+        # call's conversation. One row per side-of-turn (role='guest' or
+        # 'agent'), so writes are append-only — no UPSERT needed. ts_seconds
+        # is relative to call start (matches the same field on socket events).
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS turns ("
+            " id TEXT PRIMARY KEY,"
+            " call_sid TEXT NOT NULL,"
+            " turn_number INTEGER NOT NULL,"
+            " role TEXT NOT NULL,"
+            " ts_seconds INTEGER NOT NULL,"
+            " text TEXT NOT NULL"
+            ")"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_turns_call_sid ON turns(call_sid, turn_number)"
+        )
         conn.commit()
 
 
@@ -137,6 +154,92 @@ def log_call_end(
             conn.commit()
     except sqlite3.Error:
         logger.exception("log_call_end failed sid=%s", call_sid)
+
+
+def log_turn(
+    call_sid: str,
+    turn_number: int,
+    role: str,
+    text: str,
+    ts_seconds: int,
+    db_path: str = DB_PATH,
+) -> None:
+    """Persist one side of a turn. Fire-and-forget via BackgroundTasks so the
+    write never blocks /respond. role is 'guest' or 'agent'.
+    """
+    try:
+        with sqlite3.connect(db_path) as conn:
+            conn.execute(
+                "INSERT INTO turns (id, call_sid, turn_number, role, ts_seconds, text)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    str(uuid.uuid4()),
+                    call_sid,
+                    int(turn_number),
+                    role,
+                    int(ts_seconds),
+                    text,
+                ),
+            )
+            conn.commit()
+    except sqlite3.Error:
+        logger.exception("log_turn failed sid=%s turn=%s role=%s", call_sid, turn_number, role)
+
+
+def get_call_detail(call_sid: str, db_path: str = DB_PATH) -> dict | None:
+    """Return one call's metadata + ordered turns + actions for the history
+    view. None if the call_sid isn't recognised. Read on demand, never on
+    the hot path.
+    """
+    try:
+        with sqlite3.connect(db_path) as conn:
+            row = conn.execute(
+                "SELECT call_sid, guest_name, phone_suffix, started_at, ended_at, ended_reason"
+                " FROM calls WHERE call_sid = ?",
+                (call_sid,),
+            ).fetchone()
+            if row is None:
+                return None
+            turns_rows = conn.execute(
+                "SELECT turn_number, role, ts_seconds, text FROM turns"
+                " WHERE call_sid = ? ORDER BY turn_number ASC, role DESC",
+                (call_sid,),
+            ).fetchall()
+            actions_rows = conn.execute(
+                "SELECT type, payload_json, ts FROM actions"
+                " WHERE call_sid = ? ORDER BY ts ASC",
+                (call_sid,),
+            ).fetchall()
+    except sqlite3.Error:
+        logger.exception("get_call_detail failed sid=%s", call_sid)
+        return None
+
+    return {
+        "call_sid": row[0],
+        "guest_name": row[1],
+        "phone_suffix": row[2],
+        "started_at": row[3],
+        "ended_at": row[4],
+        "ended_reason": row[5],
+        # role DESC so 'guest' sorts before 'agent' within the same turn_number.
+        "turns": [
+            {
+                "turn_number": t[0],
+                "role": t[1],
+                "ts_seconds": t[2],
+                "text": t[3],
+            }
+            for t in turns_rows
+        ],
+        "actions": [
+            {
+                "type": a[0],
+                "payload": json.loads(a[1] or "{}"),
+                "ts": a[2],
+            }
+            for a in actions_rows
+        ],
+    }
 
 
 def list_calls(limit: int = 50, db_path: str = DB_PATH) -> list[dict]:

@@ -29,3 +29,28 @@ export async function fetchCalls(limit = 50): Promise<CallRecord[]> {
   const data = (await r.json()) as { calls: CallRecord[] };
   return data.calls || [];
 }
+
+export interface CallTurnRecord {
+  turn_number: number;
+  role: 'guest' | 'agent';
+  ts_seconds: number;
+  text: string;
+}
+
+export interface CallActionRecord {
+  type: string;
+  payload: Record<string, unknown>;
+  ts: string;
+}
+
+export interface CallDetail extends CallRecord {
+  turns: CallTurnRecord[];
+  actions: CallActionRecord[];
+}
+
+export async function fetchCallDetail(callSid: string): Promise<CallDetail> {
+  const url = `${getApiBase()}/calls/${encodeURIComponent(callSid)}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`fetchCallDetail: HTTP ${r.status}`);
+  return (await r.json()) as CallDetail;
+}

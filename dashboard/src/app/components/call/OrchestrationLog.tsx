@@ -350,7 +350,14 @@ export function OrchestrationLog({ entries }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expandedEntryIds, setExpandedEntryIds] = useState<Set<string>>(() => new Set());
 
-  // Auto-scroll to bottom as new entries appear
+  // Auto-scroll to bottom whenever content grows — not just when entries are
+  // added, but also when the agent's response fills in on an existing row
+  // (entries.length stays the same but the row's decision block appears) or
+  // when reasoning chips get attached. The signature mixes count, decision
+  // presence, and reasoning count so any of those changes triggers a scroll.
+  const scrollSignature = entries
+    .map((e) => `${e.id}:${e.decision ? 'd' : '-'}:${e.reasoning.length}:${e.actions.length}`)
+    .join('|');
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -358,7 +365,7 @@ export function OrchestrationLog({ entries }: Props) {
       el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
     }, 80);
     return () => clearTimeout(t);
-  }, [entries.length]);
+  }, [scrollSignature]);
 
   return (
     <div className="flex-1 overflow-hidden" style={{ background: '#FFFFFF' }}>

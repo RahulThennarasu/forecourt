@@ -20,7 +20,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -65,6 +65,17 @@ async def list_calls(limit: int = 50) -> dict:
     past-calls panel — no impact on the per-turn latency budget.
     """
     return {"calls": db.list_calls(limit=limit)}
+
+
+@app.get("/calls/{call_sid}")
+async def get_call(call_sid: str) -> dict:
+    """One call's full detail (metadata + turns + actions) for the history
+    view in the dashboard. 404s if the call_sid is unknown.
+    """
+    detail = db.get_call_detail(call_sid)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="call not found")
+    return detail
 
 
 @app.on_event("startup")
