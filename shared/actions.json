@@ -1,0 +1,98 @@
+{
+  "$comment": "Single source of truth for the action schema emitted by Claude during a call. Python (prompts.py, db.py, voice pipeline) loads this with json.load(). Dashboard (React) imports it directly: `import schema from '../../../shared/actions.json'`. Do NOT add types or fields without coordinating both sides.",
+
+  "version": 1,
+
+  "envelope": {
+    "$comment": "What the dashboard receives over the WebSocket. Claude emits {type, payload}; the server adds id, call_sid, ts before fan-out.",
+    "id": "string (uuid4, server-assigned)",
+    "call_sid": "string (Twilio CallSid, server-assigned)",
+    "ts": "string (ISO 8601, server-assigned)",
+    "type": "one of the keys in `types` below",
+    "payload": "object matching the payload shape for that type"
+  },
+
+  "claude_emits": {
+    "$comment": "The exact shape Claude must produce inside its <actions>...</actions> block — a JSON array of these objects. Zero or more per turn. The server wraps each one in an envelope.",
+    "shape": {
+      "type": "<action_type>",
+      "payload": { "...": "..." }
+    }
+  },
+
+  "types": {
+    "room_request": {
+      "purpose": "A specific room, suite, or in-room setup the guest asked for this stay.",
+      "payload": {
+        "request": "corner suite with oak tree view",
+        "source_quote": "Could we get the same suite we had last time?"
+      },
+      "display": {
+        "label": "Room request",
+        "icon": "bed",
+        "tone": "neutral"
+      }
+    },
+
+    "dining_request": {
+      "purpose": "Restaurant reservation, dietary need, or in-room dining the guest mentioned.",
+      "payload": {
+        "request": "vegetarian tasting menu at Madera, quiet table",
+        "when": "tonight 19:30",
+        "source_quote": "We'd love somewhere quiet — my wife is vegetarian."
+      },
+      "display": {
+        "label": "Dining",
+        "icon": "utensils",
+        "tone": "neutral"
+      }
+    },
+
+    "preference_note": {
+      "purpose": "A standing preference to attach to the guest profile (room temp, pillow, beverage, etc). Not an action staff must take this stay — a fact to remember.",
+      "payload": {
+        "note": "Room at 68F with extra duvet",
+        "source_quote": "I always like the room a little cool."
+      },
+      "display": {
+        "label": "Preference",
+        "icon": "sparkles",
+        "tone": "neutral"
+      }
+    },
+
+    "anticipatory_offer": {
+      "purpose": "The single offer surfaced this call. Recall + bridge + soft proposal. Maximum one per call. The dashboard should highlight this distinctly — it is the headline event.",
+      "payload": {
+        "recall": "Engagement weekend Sept 2023, corner suite with oak tree view",
+        "bridge": "Chef Marie on duty tonight; known for quiet anniversary surprises",
+        "proposal": "Would you like Chef Marie to put something together, kept off the bill?",
+        "trigger": "It's our anniversary actually."
+      },
+      "display": {
+        "label": "Anticipatory offer",
+        "icon": "star",
+        "tone": "highlight"
+      }
+    },
+
+    "flag_for_staff": {
+      "purpose": "Anything staff should know that doesn't fit the other types — concerns, unusual context, follow-ups, things the agent promised to confirm later.",
+      "payload": {
+        "note": "Guest asked whether spa is open at 23:00; agent deferred to staff confirmation.",
+        "priority": "normal",
+        "source_quote": "Is the spa still open when we land?"
+      },
+      "display": {
+        "label": "Staff flag",
+        "icon": "flag",
+        "tone": "warning"
+      }
+    }
+  },
+
+  "enums": {
+    "priority": ["low", "normal", "high"],
+    "tone": ["neutral", "highlight", "warning"]
+  }
+}

@@ -6,3 +6,5 @@ __pycache__/
 .DS_Store
 audio/
 *.db
+node_modules/
+dashboard/dist/
