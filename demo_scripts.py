@@ -2,7 +2,18 @@
 
 Used to make hackathon demos repeatable: given a guest profile with a
 `demo_script` value, voice.py can bypass the LLM and return a scripted
-assistant reply + actions per turn.
+assistant reply + actions for a turn whose triggers match what the guest
+just said.
+
+Matching is keyword-driven, NOT positional. A script row fires only when one
+of its `triggers` substrings is present in the guest's transcript. If no row
+matches the current utterance — e.g. the guest throws a curveball like
+"fireworks at 10 PM" — get_demo_turn returns None and voice.py falls back to
+the live Claude path so the system actually responds appropriately.
+
+Each scripted row may only fire once per call. voice.py tracks used indices
+on the call's state dict, so the same scripted response can't double-fire if
+the guest re-uses a trigger word.
 """
 
 from __future__ import annotations
@@ -10,83 +21,101 @@ from __future__ import annotations
 
 PHILIP_TURNS: list[dict] = [
     {
-        "user_hint": "arriving this afternoon",
+        # Arrival / check-in turn.
+        "user_hint": "arriving / check in",
+        "triggers": ["arriv", "check in", "check-in", "checkin", "landing", "land"],
         "say": (
-            "Welcome back, Mr. Meyer. We have your preferred Santa Cruz Mountain-View "
-            "Suite pre-keyed and ready. Given your tight schedule before Palo Alto, "
-            "I have bypassed the front desk entirely and arranged for your private "
-            "check-in directly in-villa."
+            "Welcome back, Mr. Meyer. Your Mountain-View Suite is pre-keyed — "
+            "we'll do private in-villa check-in so you can head straight up."
         ),
         "actions": [
-            {"type": "room", "payload": {"text": "VIP Internal Alert Triggered: Philip Meyer on property"}},
-            {"type": "room", "payload": {"text": "Santa Cruz Mountain-View Suite prepared with private in-villa check-in"}},
+            {"type": "room", "payload": {"text": "VIP alert: Philip Meyer on property"}},
+            {"type": "room", "payload": {"text": "Mountain-View Suite pre-keyed · private in-villa check-in"}},
         ],
     },
     {
-        "user_hint": "long ride",
+        # Cycling / morning ride turn.
+        "user_hint": "morning ride",
+        "triggers": ["ride", "cycle", "cycling", "bike", "biking", "loop", "tarmac"],
         "say": (
-            "I see the ridge has clear visibility tomorrow morning. I’ve gone ahead and "
-            "reserved Marco to pace you on the 60-mile Kings Mountain to Skyline loop "
-            "starting at 5:30 AM. Our house mechanic is tuning your S-Works Tarmac tonight, "
-            "and Bici Coffee will have your double-espresso ready at the staging area at 5:15 AM. "
-            "Shall we have your custom high-sodium electrolyte packs pre-loaded into your bottles?"
+            "Clear ridge tomorrow. Marco will pace your 5:30 AM loop, the bike "
+            "is being tuned tonight, and your espresso will be at the stage at 5:15. "
+            "Pre-load the high-sodium packs too?"
         ),
         "actions": [
-            {"type": "facility", "payload": {"text": "Pacing Guide Marco reserved for Kings Mountain Loop · 5:30 AM"}},
-            {"type": "facility", "payload": {"text": "On-site bike mechanics activated for full frame & drivetrain tune-up"}},
-            {"type": "amenity", "payload": {"text": "Bici Coffee scheduled for custom 5:15 AM espresso staging"}},
-            {"type": "amenity", "payload": {"text": "Custom high-sodium electrolyte hydration packs pre-positioned"}},
+            {"type": "facility", "payload": {"text": "Pacing guide Marco · Kings Mountain loop · 5:30 AM"}},
+            {"type": "facility", "payload": {"text": "House mechanic tuning S-Works Tarmac tonight"}},
+            {"type": "amenity", "payload": {"text": "Bici Coffee · 5:15 AM staging espresso"}},
+            {"type": "amenity", "payload": {"text": "High-sodium electrolyte packs pre-positioned"}},
         ],
     },
     {
-        "user_hint": "madera after 7",
+        # Dinner / Madera flex turn.
+        "user_hint": "dinner late",
+        "triggers": ["madera", "dinner", "dine", "dining", "reservation", "alcove", "chef's counter"],
         "say": (
-            "We will easily absorb that delay, sir. I have transitioned your Madera dining window "
-            "to an open, fluid hold. Chef Laurent has reserved the quiet alcove at the Chef’s Counter "
-            "for you anytime after 7:30 PM. There is zero cancellation pressure; we will keep the kitchen "
-            "active for you even if the call runs late into the evening. Does that offer you enough breathing room?"
+            "No pressure on timing — Chef Laurent is holding the Counter's quiet "
+            "alcove for you anytime after 7:30. Enough breathing room?"
         ),
         "actions": [
-            {"type": "dining", "payload": {"text": "Madera Dining Reservation converted to infinite VIP open hold"}},
-            {"type": "dining", "payload": {"text": "Secluded Madera Chef’s Counter alcove blocked for low-stimulus dining"}},
-            {"type": "dining", "payload": {"text": "Chef Laurent briefed on late-night culinary flexibility and custom pairings"}},
+            {"type": "dining", "payload": {"text": "Madera reservation · open VIP hold after 7:30"}},
+            {"type": "dining", "payload": {"text": "Chef's Counter alcove blocked for low-stimulus dining"}},
+            {"type": "dining", "payload": {"text": "Chef Laurent briefed on late-night flexibility"}},
         ],
     },
     {
-        "user_hint": "charity",
+        # Charity / philanthropy turn.
+        "user_hint": "charity / donor",
+        "triggers": ["charity", "donor", "donation", "nonprofit", "philanthrop", "fundrais"],
         "say": (
-            "We would love to champion this. I’ve already contacted our Director of Community Affairs. "
-            "We have flagged three prominent Venture Capital managing partners—all cycling enthusiasts currently staying with us—and "
-            "invited them to connect. I’ve blocked out the Executive Boardroom for 3:00 PM tomorrow if you'd like to host an intimate "
-            "donor briefing, and we can arrange a charity reception on the Vista Lawn for your next visit. Shall I confirm the boardroom setup?"
+            "Happy to help. Three on-property VC guests are already looped in, "
+            "and the Executive Boardroom is held at 3 PM tomorrow for a donor "
+            "briefing. Confirm the setup?"
         ),
         "actions": [
-            {"type": "facility", "payload": {"text": "Director of Community Affairs engaged as core nonprofit liaison"}},
-            {"type": "amenity", "payload": {"text": "Outreach initiated to 3 on-property VC/Tech donors for charity mentorship briefing"}},
-            {"type": "facility", "payload": {"text": "Executive Boardroom reserved for 3:00 PM pitch & donor presentation"}},
+            {"type": "facility", "payload": {"text": "Director of Community Affairs engaged"}},
+            {"type": "amenity", "payload": {"text": "3 on-property VC/Tech donors invited to connect"}},
+            {"type": "facility", "payload": {"text": "Executive Boardroom held · 3:00 PM tomorrow"}},
         ],
     },
     {
-        "user_hint": "spa fills up",
+        # Recovery / spa turn.
+        "user_hint": "spa / recovery",
+        "triggers": ["spa", "massage", "recovery", "normatec", "compression", "therapy", "muscle"],
         "say": (
-            "I anticipated that, Mr. Meyer. Our internal spa treatment rooms are fully committed tomorrow morning, "
-            "so I have reached out to our elite outside sports-medicine partner in Palo Alto. I have contracted them to deliver "
-            "a professional Normatec dynamic air-compression setup directly to your suite by 10:00 AM. They will configure it in "
-            "your private living space so you can run an intense physical recovery cycle at your own convenience before your board meeting. "
-            "Shall I finalize the external vendor invoice to your corporate account?"
+            "Had a feeling — spa is booked, so our Palo Alto partner will drop a "
+            "Normatec setup to your suite by 10 AM. Charge it to the corporate account?"
         ),
         "actions": [
-            {"type": "amenity", "payload": {"text": "External Contract Executed: Specialized Sports Therapy Labs (Palo Alto)"}},
-            {"type": "room", "payload": {"text": "Suite Drop Scheduled: In-room setup of Normatec Compression System · 10:00 AM"}},
+            {"type": "amenity", "payload": {"text": "External vendor · Specialized Sports Therapy Labs (Palo Alto)"}},
+            {"type": "room", "payload": {"text": "Normatec compression system · in-suite drop · 10:00 AM"}},
         ],
     },
 ]
 
 
-def get_demo_turn(script: str, turn_index: int) -> dict | None:
-    if script == "philip":
-        if 0 <= turn_index < len(PHILIP_TURNS):
-            return PHILIP_TURNS[turn_index]
-        return None
-    return None
+def get_demo_turn(
+    script: str,
+    speech: str,
+    used_indices: set[int] | None = None,
+) -> tuple[int, dict] | None:
+    """Return (index, turn) for the first script row whose triggers appear in
+    the guest's speech and that hasn't fired yet on this call. None if no row
+    matches — caller should fall back to the live LLM path.
 
+    used_indices is mutated by the caller after a successful fire so repeat
+    keyword hits don't replay the same scripted line.
+    """
+    if script != "philip":
+        return None
+    speech_l = (speech or "").lower()
+    if not speech_l:
+        return None
+    used = used_indices or set()
+    for idx, turn in enumerate(PHILIP_TURNS):
+        if idx in used:
+            continue
+        triggers = turn.get("triggers") or []
+        if any(t.lower() in speech_l for t in triggers):
+            return idx, turn
+    return None

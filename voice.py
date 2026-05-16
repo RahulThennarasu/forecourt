@@ -228,18 +228,23 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
     background.add_task(db.log_turn, call_sid, turn_n, "guest", speech, guest_ts)
 
     try:
-        # Deterministic demo script path (bypasses Claude) for repeatable demos.
+        # Deterministic demo script path (bypasses Claude) — only fires when
+        # the guest's speech matches a scripted turn's triggers. Curveballs
+        # like "fireworks at 10 PM" don't match anything Philip-scripted, so
+        # they fall through to the live LLM path and Claude responds normally
+        # (and emits canonical actions that flow into Calendar / Requests).
         demo_script = guest.get("demo_script") if isinstance(guest, dict) else None
+        demo_match = None
         if demo_script:
-            demo_turn = get_demo_turn(str(demo_script), turn_n - 1)
-            if demo_turn is None:
-                system_prompt = build_system_prompt(guest, LOCAL_CONTEXT)
-                raw, say_text, actions = await call_claude(system_prompt, history)
-            else:
+            used = state.setdefault("used_demo_indices", set())
+            demo_match = get_demo_turn(str(demo_script), speech, used)
+            if demo_match is not None:
+                idx, demo_turn = demo_match
+                used.add(idx)
                 say_text = demo_turn["say"]
                 actions = demo_turn.get("actions", [])
                 raw = f"<say>{say_text}</say><actions>{json.dumps(actions)}</actions>"
-        else:
+        if demo_match is None:
             system_prompt = build_system_prompt(guest, LOCAL_CONTEXT)
             raw, say_text, actions = await call_claude(system_prompt, history)
     except Exception:
