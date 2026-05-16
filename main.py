@@ -14,6 +14,7 @@ SQLite is never read during a turn (CLAUDE.md latency budget).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from pathlib import Path
@@ -97,9 +98,27 @@ async def root() -> dict:
     return {"status": "ok", "service": "threshold"}
 
 
+WS_KEEPALIVE_INTERVAL_S = 25
+
+
+async def _ws_keepalive(websocket: WebSocket) -> None:
+    """Send a tiny app-level ping every ~25s so intermediaries (ngrok, browser
+    proxies) don't close the socket as idle. The client silently discards
+    ping frames — they should not trigger any UI re-render."""
+    try:
+        while True:
+            await asyncio.sleep(WS_KEEPALIVE_INTERVAL_S)
+            await websocket.send_json({"type": "ping"})
+    except Exception:
+        # Connection closed mid-sleep, or any other send failure. The main
+        # /ws handler is in charge of cleanup; just exit quietly.
+        return
+
+
 @app.websocket("/ws")
 async def ws_endpoint(websocket: WebSocket) -> None:
     await ws.register(websocket)
+    keepalive = asyncio.create_task(_ws_keepalive(websocket))
     try:
         while True:
             # Dashboard is receive-only; receive_text() blocks until disconnect.
@@ -107,4 +126,5 @@ async def ws_endpoint(websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         pass
     finally:
+        keepalive.cancel()
         ws.unregister(websocket)

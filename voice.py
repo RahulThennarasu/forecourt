@@ -60,6 +60,22 @@ GATHER = (
 # Per-turn synthesized audio. Served via the /audio static mount in main.py.
 TURNS_DIR = Path("audio/turns")
 
+# How long to wait between returning TwiML (audio ready on disk) and
+# broadcasting the agent_turn event to the dashboard. Accounts for Twilio's
+# fetch + buffer + playback start latency over ngrok — the bubble lands when
+# the caller hears the voice instead of ~500ms before.
+AGENT_BROADCAST_DELAY_S = 0.5
+
+
+async def _broadcast_after(delay_s: float, event: dict) -> None:
+    """Fire-and-forget: sleep, then broadcast. Used to sync agent_turn arrival
+    on the dashboard with the moment audio starts playing on the call."""
+    try:
+        await asyncio.sleep(delay_s)
+        await ws.broadcast(event)
+    except Exception:
+        logger.exception("delayed broadcast failed")
+
 # When the guest's utterance reads as a closing, /respond returns Play + Hangup
 # (no Gather) so the agent's last line plays, then the call ends cleanly.
 # Long utterances that happen to contain "thanks" don't terminate — they're
@@ -216,9 +232,9 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
         history.pop()
         # The dashboard already rendered the guest bubble — emit a matching
         # agent_turn carrying the deflection so the row finalises instead of
-        # hanging forever as guest-only.
+        # hanging forever as guest-only. Delayed so it lands with the audio.
         fail_ts = max(guest_ts, int(time.monotonic() - (state.get("started_at") or time.monotonic())))
-        asyncio.create_task(ws.broadcast({
+        asyncio.create_task(_broadcast_after(AGENT_BROADCAST_DELAY_S, {
             "type": "agent_turn",
             "call_sid": call_sid,
             "turn_number": turn_n,
@@ -278,10 +294,11 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
     # Matching agent_turn — finalises the row in the dashboard. Carries the
     # same turn_number as the earlier guest_turn so the view fills in the same
     # entry. Timestamp captured AFTER synthesis so it reflects when the audio
-    # is actually ready to play.
+    # is actually ready to play. Broadcast is delayed by AGENT_BROADCAST_DELAY_S
+    # to sync visually with Twilio's fetch + buffer + playback start.
     started_at = state.get("started_at") or time.monotonic()
     agent_ts = max(guest_ts, int(time.monotonic() - started_at))
-    asyncio.create_task(ws.broadcast({
+    asyncio.create_task(_broadcast_after(AGENT_BROADCAST_DELAY_S, {
         "type": "agent_turn",
         "call_sid": call_sid,
         "turn_number": turn_n,

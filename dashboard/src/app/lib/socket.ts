@@ -3,9 +3,15 @@
  *
  * Events from voice.py:
  *   - call_started  { call_sid, guest_name, phone_suffix }
- *   - turn          { call_sid, turn_number, ts_seconds, guest_speech, agent_say, actions[], leaks[] }
- *   - action        { call_sid, action: { type, payload } }   // per-action stream (duplicates of `turn.actions`)
+ *   - guest_turn    { call_sid, turn_number, ts_seconds, speech }
+ *   - agent_turn    { call_sid, turn_number, ts_seconds, say, actions[], leaks[] }
+ *   - action        { call_sid, action: { type, payload } }   // per-action stream
  *   - leak_guard    { call_sid, labels[] }
+ *   - call_ended    { call_sid, ts_seconds, reason }
+ *
+ * The server also emits app-level {type:"ping"} every 25s to keep proxies /
+ * ngrok from closing the socket as idle. The hook discards those silently —
+ * they never become `last` and never trigger a re-render.
  *
  * URL is configurable via VITE_WS_URL; defaults to ws://localhost:8000/ws.
  * Auto-reconnects with a 2s backoff. Keeps a single open connection per page.
@@ -82,8 +88,11 @@ function getWsUrl(): string {
 }
 
 /**
- * Subscribe to backend events. Returns the latest event, the connection
- * status, and the full ordered list since this hook mounted.
+ * Subscribe to backend events. Returns the latest event and the connection
+ * status. The event log is deliberately NOT accumulated here — only `last` is
+ * tracked, which halves the re-renders per message and removed a flickering
+ * symptom caused by every consumer receiving a new `events` array reference
+ * on every WS message.
  *
  * Usage: a single component mounts the hook and routes events into local state.
  * Multiple mounts would open multiple sockets — fine for the demo, but should
@@ -92,7 +101,6 @@ function getWsUrl(): string {
 export function useThresholdSocket() {
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [last, setLast] = useState<SocketEvent | null>(null);
-  const [events, setEvents] = useState<SocketEvent[]>([]);
   const socketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -101,21 +109,22 @@ export function useThresholdSocket() {
 
     function connect() {
       if (cancelled) return;
-      setStatus('connecting');
+      setStatus((prev) => (prev === 'connecting' ? prev : 'connecting'));
       const ws = new WebSocket(getWsUrl());
       socketRef.current = ws;
 
       ws.addEventListener('open', () => {
         if (cancelled) return;
-        setStatus('open');
+        setStatus((prev) => (prev === 'open' ? prev : 'open'));
       });
 
       ws.addEventListener('message', (ev: MessageEvent<string>) => {
         if (cancelled) return;
         try {
-          const data = JSON.parse(ev.data) as SocketEvent;
-          setLast(data);
-          setEvents((prev) => [...prev, data]);
+          const data = JSON.parse(ev.data) as SocketEvent & { type?: string };
+          // Server-side keep-alive — discard without triggering a render.
+          if (data && data.type === 'ping') return;
+          setLast(data as SocketEvent);
         } catch (err) {
           // eslint-disable-next-line no-console
           console.warn('[ws] non-JSON message dropped', err);
@@ -124,7 +133,7 @@ export function useThresholdSocket() {
 
       ws.addEventListener('close', () => {
         if (cancelled) return;
-        setStatus('closed');
+        setStatus((prev) => (prev === 'closed' ? prev : 'closed'));
         retry = setTimeout(connect, 2000);
       });
 
@@ -142,5 +151,5 @@ export function useThresholdSocket() {
     };
   }, []);
 
-  return { status, last, events };
+  return { status, last };
 }
