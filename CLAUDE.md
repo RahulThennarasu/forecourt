@@ -122,9 +122,9 @@ If a code change would add latency to the hot path, push back. Find another way.
 - **uvicorn** — ASGI server
 - **WebSockets** (via FastAPI built-in) — push actions to dashboard
 
-Frontend (Rahul's domain): vanilla HTML + Tailwind via CDN + vanilla JS WebSocket client. No build step. No framework.
+Frontend (Rahul's domain): Vite + React + Tailwind v4, scaffolded from a Figma Make export. The dashboard lives at the repo root (not in a `dashboard/` subdir), runs on Vite's dev server, and will connect to FastAPI via a WebSocket client written in plain React.
 
-Do NOT introduce: Postgres, Redis, Docker, Celery, Next.js, React, build tools, ORMs, authentication systems, or any service that requires deployment. This is a 7-hour build.
+Do NOT introduce: Postgres, Redis, Docker, Celery, Next.js, ORMs, authentication systems, or any service that requires deployment. This is a 7-hour build.
 
 ---
 
