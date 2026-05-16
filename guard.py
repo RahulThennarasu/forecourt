@@ -164,19 +164,41 @@ def _has_profile_content(guest_profile: Optional[dict]) -> bool:
 
 
 def _tidy(text: str) -> str:
-    """Clean up artifacts left by word redaction: collapse double spaces,
-    drop space before punctuation, drop stranded articles before punctuation
-    ('a .' / 'the ,'), and tighten 'a/an' that lost its noun."""
+    """Clean up artifacts left by word redaction.
+
+    Run repairs in order, since each pass can expose new dangling fragments:
+      1. Collapse runs of whitespace.
+      2. Drop dangling linking verbs that lost their predicate. Without this,
+         redacting "vegetarian" from "your wife is vegetarian — should we"
+         leaves the surreal "your wife is — should we". After the repair it
+         reads "your wife — should we".
+      3. Drop stranded articles/possessives sitting against punctuation.
+      4. Remove spaces immediately before punctuation.
+      5. Collapse the doubled em-dashes / double spaces the repairs can
+         produce ("— —" / "  ").
+    """
     text = re.sub(r"\s{2,}", " ", text)
-    text = re.sub(r"\s+([.,!?;:])", r"\1", text)
-    # Strip dangling articles/preps left over after a redaction (e.g.
-    # "arrange a dinner" stays, "arrange a ." becomes "arrange.").
+    # Strip dangling linking/auxiliary verbs before punctuation or a dash.
+    # \s* on the right so "is." with no space matches too. Replace with a
+    # single space so "wife is —" becomes "wife —" rather than "wife—".
     text = re.sub(
-        r"\b(?:a|an|the|some|any|her|his|your|our|their)\s+([.,!?;:])",
-        r"\1",
+        r"\s+\b(?:is|are|was|were|has|have|had|will|would|should|do|does|did|can|could|may|might)\b\s*(?=[—–\-,.!?;:])",
+        " ",
         text,
         flags=re.IGNORECASE,
     )
+    # Strip dangling articles/possessives left over after a redaction (e.g.
+    # "arrange a ." becomes "arrange.").
+    text = re.sub(
+        r"\b(?:a|an|the|some|any|her|his|your|our|their)\s+(?=[.,!?;:—–\-])",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(r"\s+([.,!?;:])", r"\1", text)
+    # Two redactions in a row can produce "X — —" or doubled spaces. Tighten.
+    text = re.sub(r"([—–\-])\s*\1", r"\1", text)
+    text = re.sub(r"\s{2,}", " ", text)
     return text.strip()
 
 
