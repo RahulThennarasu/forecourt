@@ -5,7 +5,7 @@ import rosewoodFacilities from "../../../../rosewood_facilities.json";
 
 type View = "month" | "week" | "day";
 
-interface CalEvent {
+export interface CalEvent {
   id: string;
   title: string;
   start: string;
@@ -53,7 +53,7 @@ function mkId(prefix: string, i: number) {
 
 // All events: those with startHour are timed; those without are all-day/multi-day
 // Rosewood-specific programming + stays around May 2026.
-const EVENTS: CalEvent[] = [
+export const EVENTS: CalEvent[] = [
   // Stays / VIPs
   {
     id: "stay-1",

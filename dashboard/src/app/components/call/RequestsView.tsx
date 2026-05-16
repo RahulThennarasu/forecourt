@@ -1,79 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Activity, Car, Flower2, Monitor, PhoneCall } from 'lucide-react';
-import { mockCallDataPhilip } from '@/data/mockCallData.philip';
+import { MOCK_REQUESTS, type RequestRecord } from '@/data/mockRequests';
+import cventLogo from '@/assets/icons/cvent.png';
 
 const CREAM_HIGHLIGHT = '#F3E5D3';
 const FOREST_GREEN = '#0a3622';
 
-type Vendor = {
-  name: string;
-  phone: string;
-  area: string;
-  notes?: string;
-};
-
-type RequestCard = {
-  id: string;
-  service: string;
-  summary: string;
-  details?: string[];
-  vendors: Vendor[];
-  requestedBy: string;
-  requestedAt: number; // seconds into call
-};
-
-const MENLO_VENDORS: Record<string, Vendor[]> = {
-  'sports therapy': [
-    { name: 'On-Site Sports Therapy (Menlo Park)', phone: '+1 (650) 555-0199', area: 'Menlo Park', notes: 'Mobile recovery setup · same-day delivery' },
-    { name: 'Peninsula Recovery Studio', phone: '+1 (650) 555-0177', area: 'Menlo Park', notes: 'Compression boots · assisted stretch' },
-    { name: 'Palo Alto Sports Therapy Labs', phone: '+1 (650) 555-0133', area: 'Palo Alto', notes: 'Medical-grade recovery · invoice-ready' },
-  ],
-  transport: [
-    { name: 'Rosewood Town Car Desk', phone: '+1 (650) 555-0100', area: 'Rosewood', notes: 'Within 5-mile radius · priority dispatch' },
-    { name: 'Peninsula Executive Car', phone: '+1 (650) 555-0128', area: 'Menlo Park', notes: 'Airport runs · hourly charter' },
-  ],
-  florist: [
-    { name: 'Menlo Florals', phone: '+1 (650) 555-0156', area: 'Menlo Park', notes: 'Same-day arrangements · suite setup' },
-    { name: 'Atherton Garden Studio', phone: '+1 (650) 555-0164', area: 'Atherton', notes: 'Luxury centerpieces · events' },
-  ],
-  av: [
-    { name: 'Peninsula AV & Events', phone: '+1 (650) 555-0148', area: 'Menlo Park', notes: 'Boardroom setups · mic/projector' },
-  ],
-  security: [
-    { name: 'Peninsula Executive Security', phone: '+1 (650) 555-0116', area: 'Menlo Park', notes: 'Discrete detail · venue screening' },
-    { name: 'Bay Area Close Protection', phone: '+1 (650) 555-0186', area: 'Palo Alto', notes: 'VIP escort · event coverage' },
-  ],
-  childcare: [
-    { name: 'Menlo Park Nannies', phone: '+1 (650) 555-0122', area: 'Menlo Park', notes: 'Background-checked · evening coverage' },
-    { name: 'Peninsula Babysitting Co.', phone: '+1 (650) 555-0151', area: 'Atherton', notes: 'Hotel-experienced sitters' },
-  ],
-  photography: [
-    { name: 'Peninsula Portrait Studio', phone: '+1 (650) 555-0138', area: 'Menlo Park', notes: 'On-property shoots · 2-hour blocks' },
-    { name: 'Bay Area Event Photo', phone: '+1 (650) 555-0168', area: 'Palo Alto', notes: 'Candid coverage · same-day selects' },
-  ],
-  'pet care': [
-    { name: 'Menlo Pet Concierge', phone: '+1 (650) 555-0174', area: 'Menlo Park', notes: 'In-suite visits · walking service' },
-    { name: 'Peninsula Vet On-Call', phone: '+1 (650) 555-0109', area: 'Palo Alto', notes: 'After-hours support' },
-  ],
-  'private dining': [
-    { name: 'Peninsula Private Chef Network', phone: '+1 (650) 555-0144', area: 'Menlo Park', notes: 'In-suite chef service · tasting menus' },
-    { name: 'Wine Steward On-Call', phone: '+1 (650) 555-0192', area: 'Atherton', notes: 'Pairing + bottle sourcing' },
-  ],
-};
-
-function normalizeServiceFromText(text: string): string {
-  const t = text.toLowerCase();
-  if (t.includes('normatec') || t.includes('compression') || t.includes('recovery')) return 'sports therapy';
-  if (t.includes('car') || t.includes('transport') || t.includes('driving')) return 'transport';
-  if (t.includes('floral') || t.includes('flowers')) return 'florist';
-  if (t.includes('av') || t.includes('projector') || t.includes('microphone') || t.includes('boardroom')) return 'av';
-  if (t.includes('security') || t.includes('protection')) return 'security';
-  if (t.includes('child') || t.includes('babysit') || t.includes('nanny')) return 'childcare';
-  if (t.includes('photo') || t.includes('portrait')) return 'photography';
-  if (t.includes('pet') || t.includes('dog') || t.includes('cat')) return 'pet care';
-  if (t.includes('private dining') || t.includes('chef')) return 'private dining';
-  return 'sports therapy';
-}
+type RequestCard = RequestRecord;
 
 function formatCallTime(seconds: number) {
   const mins = Math.floor(seconds / 60);
@@ -108,107 +41,11 @@ function serviceMeta(service: string) {
 
 export function RequestsView() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [cventStatusById, setCventStatusById] = useState<
+    Record<string, 'idle' | 'adding' | 'added' | 'error'>
+  >({});
 
-  const cards = useMemo<RequestCard[]>(() => {
-    const entries: any[] = (mockCallDataPhilip as any)?.entries ?? [];
-    const guestName: string = (mockCallDataPhilip as any)?.guestName ?? 'Guest';
-    const requestCards: RequestCard[] = [];
-
-    for (const entry of entries) {
-      const reasoning: any[] = entry?.reasoning ?? [];
-      const outside = reasoning.find((r) => r?.type === 'outside_service_bridge');
-      if (outside) {
-        const summary = outside.description || 'Outside service needed';
-        const details = Array.isArray(outside.details) ? outside.details : [];
-        const service = normalizeServiceFromText(`${outside.title ?? ''} ${outside.description ?? ''} ${details.join(' ')}`);
-        requestCards.push({
-          id: `req-${entry.id}`,
-          service,
-          summary,
-          details,
-          vendors: MENLO_VENDORS[service] ?? [],
-          requestedBy: guestName,
-          requestedAt: entry?.timestamp ?? 0,
-        });
-      }
-    }
-
-    // If no outside-service cards exist yet (early in call playback), show a few
-    // Rosewood-style request templates so the tab isn’t empty.
-    if (requestCards.length === 0) {
-      requestCards.push(
-        {
-          id: 'req-template-transport',
-          service: 'transport',
-          summary: 'Town car / driver coordination',
-          details: ['Confirm pickup window', 'Route: Rosewood Sand Hill ⇄ Palo Alto', 'Add corporate billing note if needed'],
-          vendors: MENLO_VENDORS.transport,
-          requestedBy: guestName,
-          requestedAt: 0,
-        },
-        {
-          id: 'req-template-florist',
-          service: 'florist',
-          summary: 'Floral arrangement / in-room setup',
-          details: ['Suite delivery', 'Card message', 'Preferred palette (neutral / seasonal)'],
-          vendors: MENLO_VENDORS.florist,
-          requestedBy: guestName,
-          requestedAt: 0,
-        },
-      );
-    }
-
-    // Extra mock requests (different people + different services) for demo density.
-    requestCards.push(
-      {
-        id: 'req-mock-security-1',
-        service: 'security',
-        summary: 'Discrete security detail for a late-night arrival',
-        details: ['One plainclothes agent at porte cochère', 'Escort to suite if requested', 'No visible staging in lobby'],
-        vendors: MENLO_VENDORS.security,
-        requestedBy: 'Ava Chen',
-        requestedAt: 35,
-      },
-      {
-        id: 'req-mock-childcare-1',
-        service: 'childcare',
-        summary: 'Babysitting coverage during dinner reservation',
-        details: ['2 children (ages 4 & 7)', 'In-room games + bedtime routine', 'Confirm any allergies + emergency contact'],
-        vendors: MENLO_VENDORS.childcare,
-        requestedBy: 'Mr. & Mrs. Tanaka',
-        requestedAt: 41,
-      },
-      {
-        id: 'req-mock-photo-1',
-        service: 'photography',
-        summary: 'Golden-hour couple portraits on property',
-        details: ['30-minute shoot', 'Courtyard + Vista Lawn options', 'Deliver 10 selects same day'],
-        vendors: MENLO_VENDORS.photography,
-        requestedBy: 'Sofia Martinez',
-        requestedAt: 52,
-      },
-      {
-        id: 'req-mock-pet-1',
-        service: 'pet care',
-        summary: 'Pet sitting / walking service while guest is in meetings',
-        details: ['Dog: small breed', 'Two walks (midday + evening)', 'Coordinate access with concierge'],
-        vendors: MENLO_VENDORS['pet care'],
-        requestedBy: 'Jordan Patel',
-        requestedAt: 58,
-      },
-      {
-        id: 'req-mock-private-dining-1',
-        service: 'private dining',
-        summary: 'In-suite private chef tasting + wine steward',
-        details: ['4 guests', 'Start anytime after 8:30 PM', 'Quiet service (no announcements)'],
-        vendors: MENLO_VENDORS['private dining'],
-        requestedBy: 'Lena Kim',
-        requestedAt: 66,
-      },
-    );
-
-    return requestCards;
-  }, []);
+  const cards = useMemo<RequestCard[]>(() => MOCK_REQUESTS, []);
 
   return (
     <div className="flex-1 overflow-y-auto px-10 py-10" style={{ background: '#FFFFFF' }}>
@@ -346,15 +183,89 @@ export function RequestsView() {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setExpandedId(null)}
-                      className="px-3 py-1 border border-[#E0DBD0] hover:bg-[#F7F5F0] transition-colors text-[#666]"
-                      style={{ fontFamily: 'PP Neue Montreal, sans-serif', fontSize: '0.75rem', borderRadius: 3 }}
-                    >
-                      Close
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const status = cventStatusById[c.id] ?? 'idle';
+                          if (status === 'adding' || status === 'added') return;
+                          setCventStatusById((prev) => ({ ...prev, [c.id]: 'adding' }));
+                          try {
+                            const payload = {
+                              provider: 'cvent',
+                              hotel: 'Rosewood Sand Hill',
+                              request_id: c.id,
+                              service: c.service,
+                              summary: c.summary,
+                              requested_by: c.requestedBy,
+                              requested_at: c.requestedAt,
+                              details: c.details ?? [],
+                              vendors: c.vendors,
+                            };
+                            await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+                            setCventStatusById((prev) => ({ ...prev, [c.id]: 'added' }));
+                          } catch {
+                            setCventStatusById((prev) => ({ ...prev, [c.id]: 'error' }));
+                          }
+                        }}
+                        className="px-3 py-1 border border-[#E0DBD0] hover:bg-[#F7F5F0] transition-colors"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 44,
+                          height: 32,
+                          padding: 0,
+                          borderRadius: 6,
+                          background:
+                            (cventStatusById[c.id] ?? 'idle') === 'added'
+                              ? 'rgba(10, 54, 34, 0.06)'
+                              : '#FFFFFF',
+                        }}
+                        title={
+                          (cventStatusById[c.id] ?? 'idle') === 'adding'
+                            ? 'Adding to Cvent…'
+                            : (cventStatusById[c.id] ?? 'idle') === 'added'
+                              ? 'Added to Cvent'
+                              : (cventStatusById[c.id] ?? 'idle') === 'error'
+                                ? 'Retry Cvent'
+                                : 'Add to Cvent'
+                        }
+                      >
+                        <img
+                          src={cventLogo}
+                          alt=""
+                          style={{
+                            width: 26,
+                            height: 26,
+                            objectFit: 'contain',
+                            opacity: (cventStatusById[c.id] ?? 'idle') === 'adding' ? 0.55 : 0.95,
+                            filter: (cventStatusById[c.id] ?? 'idle') === 'added' ? 'saturate(1.05)' : 'none',
+                          }}
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedId(null)}
+                        className="px-3 py-1 border border-[#E0DBD0] hover:bg-[#F7F5F0] transition-colors text-[#666]"
+                        style={{ fontFamily: 'PP Neue Montreal, sans-serif', fontSize: '0.75rem', borderRadius: 3 }}
+                      >
+                        Close
+                      </button>
+                    </div>
                   </div>
+
+                  <p
+                    style={{
+                      fontFamily: 'PP Neue Montreal, sans-serif',
+                      fontSize: '0.8125rem',
+                      color: '#000000',
+                      opacity: 0.6,
+                      marginTop: 10,
+                    }}
+                  >
+                    “Add to Cvent” copies a Cvent-ready payload to your clipboard (mock integration).
+                  </p>
 
                   {c.details?.length ? (
                     <ul className="mt-5 space-y-1.5" style={{ paddingLeft: 16 }}>

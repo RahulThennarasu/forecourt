@@ -1,5 +1,7 @@
 import { motion } from "motion/react";
 import { ArrowLeft, Plane, Clock, Utensils, BedDouble, MapPin } from "lucide-react";
+import { EVENTS } from "./Calendar";
+import { MOCK_REQUESTS } from "@/data/mockRequests";
 
 export interface GuestProfile {
   id: string;
@@ -53,6 +55,9 @@ function Tag({ children }: { children: React.ReactNode }) {
 
 export function GuestDetail({ guest, onBack }: { guest: GuestProfile; onBack: () => void }) {
   const ss = STATUS_STYLE[guest.status];
+  const guestKey = guest.name.toLowerCase();
+  const guestRequests = MOCK_REQUESTS.filter((r) => r.requestedBy.toLowerCase() === guestKey);
+  const guestEvents = EVENTS.filter((e) => e.title.toLowerCase().includes(guest.name.split(" ")[0].toLowerCase()) || e.title.toLowerCase().includes(guestKey));
 
   return (
     <motion.div
@@ -200,6 +205,59 @@ export function GuestDetail({ guest, onBack }: { guest: GuestProfile; onBack: ()
               </div>
             )}
           </div>
+        </div>
+
+        {/* Requests */}
+        <Divider />
+        <div className="py-8">
+          <Label>Requests</Label>
+          {guestRequests.length === 0 ? (
+            <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.875rem", color: "#AAA" }}>
+              No requests recorded.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {guestRequests.map((r) => (
+                <div key={r.id} className="px-5 py-4 rounded" style={{ background: "#F7F5F0" }}>
+                  <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.75rem", color: "#AAA", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                    {r.service}
+                  </p>
+                  <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.9375rem", color: "#1A1814", marginTop: 6 }}>
+                    {r.summary}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Calendar events */}
+        <Divider />
+        <div className="py-8">
+          <Label>Calendar</Label>
+          {guestEvents.length === 0 ? (
+            <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.875rem", color: "#AAA" }}>
+              No booked events found.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {guestEvents.map((ev) => (
+                <div key={ev.id} className="px-5 py-4 rounded" style={{ background: "#F7F5F0" }}>
+                  <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.75rem", color: "#AAA", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                    {ev.type}
+                  </p>
+                  <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.9375rem", color: "#1A1814", marginTop: 6 }}>
+                    {ev.title}
+                  </p>
+                  {ev.detail && (
+                    <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.8125rem", color: "#999", marginTop: 4, lineHeight: 1.5 }}>
+                      {ev.detail}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Background */}
