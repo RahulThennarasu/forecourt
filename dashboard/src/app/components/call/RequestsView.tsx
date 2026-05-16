@@ -1,27 +1,14 @@
 import { useMemo, useState } from 'react';
-import { Activity, Car, Flower2, Monitor, PhoneCall, Sparkles } from 'lucide-react';
+import { Car, Flower2, Monitor, PhoneCall, Sparkles } from 'lucide-react';
 import { mockCallDataPhilip } from '@/data/mockCallData.philip';
 import { LiveRequest, useLiveBookings } from '@/app/lib/bookings';
+import { MOCK_REQUESTS, type RequestRecord, type Vendor } from '@/data/mockRequests';
+import cventLogo from '@/assets/icons/cvent.png';
 
 const CREAM_HIGHLIGHT = '#F3E5D3';
 const FOREST_GREEN = '#0a3622';
 
-type Vendor = {
-  name: string;
-  phone: string;
-  area: string;
-  notes?: string;
-};
-
-type RequestCard = {
-  id: string;
-  service: string;
-  summary: string;
-  details?: string[];
-  vendors: Vendor[];
-  requestedBy: string;
-  requestedAt: number; // seconds into call
-};
+type RequestCard = RequestRecord;
 
 const MENLO_VENDORS: Record<string, Vendor[]> = {
   'sports therapy': [
@@ -117,6 +104,9 @@ function serviceMeta(service: string) {
 
 export function RequestsView() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [cventStatusById, setCventStatusById] = useState<
+    Record<string, 'idle' | 'adding' | 'added' | 'error'>
+  >({});
   const { requests: liveRequests } = useLiveBookings();
 
   function fmtScheduledRange(r: LiveRequest): string | undefined {
@@ -202,53 +192,11 @@ export function RequestsView() {
     }
 
     // Extra mock requests (different people + different services) for demo density.
-    requestCards.push(
-      {
-        id: 'req-mock-security-1',
-        service: 'security',
-        summary: 'Discrete security detail for a late-night arrival',
-        details: ['One plainclothes agent at porte cochère', 'Escort to suite if requested', 'No visible staging in lobby'],
-        vendors: MENLO_VENDORS.security,
-        requestedBy: 'Ava Chen',
-        requestedAt: 35,
-      },
-      {
-        id: 'req-mock-childcare-1',
-        service: 'childcare',
-        summary: 'Babysitting coverage during dinner reservation',
-        details: ['2 children (ages 4 & 7)', 'In-room games + bedtime routine', 'Confirm any allergies + emergency contact'],
-        vendors: MENLO_VENDORS.childcare,
-        requestedBy: 'Mr. & Mrs. Tanaka',
-        requestedAt: 41,
-      },
-      {
-        id: 'req-mock-photo-1',
-        service: 'photography',
-        summary: 'Golden-hour couple portraits on property',
-        details: ['30-minute shoot', 'Courtyard + Vista Lawn options', 'Deliver 10 selects same day'],
-        vendors: MENLO_VENDORS.photography,
-        requestedBy: 'Sofia Martinez',
-        requestedAt: 52,
-      },
-      {
-        id: 'req-mock-pet-1',
-        service: 'pet care',
-        summary: 'Pet sitting / walking service while guest is in meetings',
-        details: ['Dog: small breed', 'Two walks (midday + evening)', 'Coordinate access with concierge'],
-        vendors: MENLO_VENDORS['pet care'],
-        requestedBy: 'Jordan Patel',
-        requestedAt: 58,
-      },
-      {
-        id: 'req-mock-private-dining-1',
-        service: 'private dining',
-        summary: 'In-suite private chef tasting + wine steward',
-        details: ['4 guests', 'Start anytime after 8:30 PM', 'Quiet service (no announcements)'],
-        vendors: MENLO_VENDORS['private dining'],
-        requestedBy: 'Lena Kim',
-        requestedAt: 66,
-      },
-    );
+    for (const request of MOCK_REQUESTS) {
+      if (!requestCards.some((card) => card.id === request.id)) {
+        requestCards.push(request);
+      }
+    }
 
     return requestCards;
   }, [liveRequests]);
@@ -389,15 +337,89 @@ export function RequestsView() {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setExpandedId(null)}
-                      className="px-3 py-1 border border-[#E0DBD0] hover:bg-[#F7F5F0] transition-colors text-[#666]"
-                      style={{ fontFamily: 'PP Neue Montreal, sans-serif', fontSize: '0.75rem', borderRadius: 3 }}
-                    >
-                      Close
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const status = cventStatusById[c.id] ?? 'idle';
+                          if (status === 'adding' || status === 'added') return;
+                          setCventStatusById((prev) => ({ ...prev, [c.id]: 'adding' }));
+                          try {
+                            const payload = {
+                              provider: 'cvent',
+                              hotel: 'Rosewood Sand Hill',
+                              request_id: c.id,
+                              service: c.service,
+                              summary: c.summary,
+                              requested_by: c.requestedBy,
+                              requested_at: c.requestedAt,
+                              details: c.details ?? [],
+                              vendors: c.vendors,
+                            };
+                            await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+                            setCventStatusById((prev) => ({ ...prev, [c.id]: 'added' }));
+                          } catch {
+                            setCventStatusById((prev) => ({ ...prev, [c.id]: 'error' }));
+                          }
+                        }}
+                        className="px-3 py-1 border border-[#E0DBD0] hover:bg-[#F7F5F0] transition-colors"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: 44,
+                          height: 32,
+                          padding: 0,
+                          borderRadius: 6,
+                          background:
+                            (cventStatusById[c.id] ?? 'idle') === 'added'
+                              ? 'rgba(10, 54, 34, 0.06)'
+                              : '#FFFFFF',
+                        }}
+                        title={
+                          (cventStatusById[c.id] ?? 'idle') === 'adding'
+                            ? 'Adding to Cvent…'
+                            : (cventStatusById[c.id] ?? 'idle') === 'added'
+                              ? 'Added to Cvent'
+                              : (cventStatusById[c.id] ?? 'idle') === 'error'
+                                ? 'Retry Cvent'
+                                : 'Add to Cvent'
+                        }
+                      >
+                        <img
+                          src={cventLogo}
+                          alt=""
+                          style={{
+                            width: 26,
+                            height: 26,
+                            objectFit: 'contain',
+                            opacity: (cventStatusById[c.id] ?? 'idle') === 'adding' ? 0.55 : 0.95,
+                            filter: (cventStatusById[c.id] ?? 'idle') === 'added' ? 'saturate(1.05)' : 'none',
+                          }}
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedId(null)}
+                        className="px-3 py-1 border border-[#E0DBD0] hover:bg-[#F7F5F0] transition-colors text-[#666]"
+                        style={{ fontFamily: 'PP Neue Montreal, sans-serif', fontSize: '0.75rem', borderRadius: 3 }}
+                      >
+                        Close
+                      </button>
+                    </div>
                   </div>
+
+                  <p
+                    style={{
+                      fontFamily: 'PP Neue Montreal, sans-serif',
+                      fontSize: '0.8125rem',
+                      color: '#000000',
+                      opacity: 0.6,
+                      marginTop: 10,
+                    }}
+                  >
+                    “Add to Cvent” copies a Cvent-ready payload to your clipboard (mock integration).
+                  </p>
 
                   {c.details?.length ? (
                     <ul className="mt-5 space-y-1.5" style={{ paddingLeft: 16 }}>
