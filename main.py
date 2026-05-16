@@ -25,6 +25,7 @@ from fastapi.staticfiles import StaticFiles
 import db
 import ws
 from data import load_guests_from_db, seed_tanaka_profile
+from synthesis import ensure_opening_hook
 from voice import router as voice_router
 
 load_dotenv()
@@ -60,11 +61,16 @@ async def startup() -> None:
 
     hook = AUDIO_DIR / "opening_tanaka.mp3"
     if not hook.exists():
-        logger.error(
-            "Missing %s — generate it before the demo (separate ElevenLabs task). "
-            "Calls will play nothing until this is fixed.",
-            hook,
-        )
+        logger.info("opening hook missing — attempting auto-generation via ElevenLabs")
+        generated = ensure_opening_hook(AUDIO_DIR)
+        if generated is None:
+            logger.error(
+                "Missing %s and auto-generation failed (no ELEVENLABS_API_KEY or "
+                "API error). Live calls will play silence at pickup until this is fixed.",
+                hook,
+            )
+        else:
+            logger.info("opening hook generated at %s", generated)
 
 
 @app.get("/")

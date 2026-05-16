@@ -8,7 +8,13 @@ the post-call briefing card.
 
 from __future__ import annotations
 
+import datetime
+import json
+import logging
 import sqlite3
+import uuid
+
+logger = logging.getLogger(__name__)
 
 DB_PATH = "threshold.db"
 
@@ -35,3 +41,31 @@ def init_db(db_path: str = DB_PATH) -> None:
             "CREATE INDEX IF NOT EXISTS idx_actions_call_sid ON actions(call_sid)"
         )
         conn.commit()
+
+
+def log_action(
+    call_sid: str,
+    action_type: str,
+    payload: dict,
+    db_path: str = DB_PATH,
+) -> None:
+    """Insert a single action. Designed to run via FastAPI BackgroundTasks
+    so it never blocks a /respond turn (CLAUDE.md latency budget: writes are
+    fire-and-forget). Never raises — failures are logged and swallowed.
+    """
+    try:
+        with sqlite3.connect(db_path) as conn:
+            conn.execute(
+                "INSERT INTO actions (id, call_sid, ts, type, payload_json)"
+                " VALUES (?, ?, ?, ?, ?)",
+                (
+                    str(uuid.uuid4()),
+                    call_sid,
+                    datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    action_type,
+                    json.dumps(payload, separators=(",", ":")),
+                ),
+            )
+            conn.commit()
+    except sqlite3.Error:
+        logger.exception("log_action failed sid=%s type=%s", call_sid, action_type)

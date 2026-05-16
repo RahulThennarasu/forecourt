@@ -1,8 +1,23 @@
-"""Conversation prompt template for the Threshold voice pipeline."""
+"""Conversation prompt template and per-turn Claude call for Threshold."""
 
 from __future__ import annotations
 
 import json
+import logging
+import re
+from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+# Model selection.
+# CLAUDE.md: Haiku 4.5 for non-critical turns, Opus 4.7 reserved for offer turns.
+# We use Haiku for everything until a measured reliability problem justifies
+# upgrading — Opus-on-trigger can be added later as `_select_model(speech)`.
+CLAUDE_MODEL = "claude-haiku-4-5"
+MAX_TOKENS = 400
+
+# Lazy async client; AsyncAnthropic reads ANTHROPIC_API_KEY from env at first use.
+_client = None
 
 # Injected when lookup_guest() returned None (no match, DEMO_MODE off). Keeps
 # the system prompt structurally valid so its restraint rules handle the empty
@@ -152,3 +167,79 @@ def build_system_prompt(
         .replace("{guest_profile}", profile_json)
         .replace("{local_context}", context_json)
     )
+
+
+def _get_client():
+    """Lazy AsyncAnthropic — avoids needing the API key just to import."""
+    global _client
+    if _client is None:
+        from anthropic import AsyncAnthropic
+        _client = AsyncAnthropic()
+    return _client
+
+
+def _extract_tag(text: str, tag: str) -> Optional[str]:
+    """Extract content between <tag>...</tag>. None if missing or malformed."""
+    m = re.search(rf"<{tag}>(.*?)</{tag}>", text, re.DOTALL)
+    return m.group(1).strip() if m else None
+
+
+async def call_claude(
+    system_prompt: str,
+    history: list[dict],
+) -> tuple[str, str, list[dict]]:
+    """Single Claude turn. Returns (raw_response, say_text, actions).
+
+    - raw_response: full XML-wrapped string Claude emitted; append to history
+      so the next turn sees its own format.
+    - say_text: extracted <say>...</say> content, or a safe deflection if
+      Claude returned no <say> tag.
+    - actions: parsed <actions>[...]</actions> array. Empty list on malformed
+      JSON or missing tag.
+
+    Prompt caching: the system prompt is sent as a single cacheable block.
+    First turn writes the cache; subsequent turns hit it for cheaper input
+    tokens and faster TTFT.
+    """
+    client = _get_client()
+    resp = await client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=MAX_TOKENS,
+        system=[{
+            "type": "text",
+            "text": system_prompt,
+            "cache_control": {"type": "ephemeral"},
+        }],
+        messages=history,
+    )
+    raw = resp.content[0].text
+
+    say_text = _extract_tag(raw, "say")
+    if not say_text:
+        logger.warning("Claude returned no <say> tag; raw=%r", raw[:200])
+        say_text = (
+            "Let me have the team confirm that and follow up by text."
+        )
+
+    actions_str = _extract_tag(raw, "actions") or "[]"
+    try:
+        actions = json.loads(actions_str)
+        if not isinstance(actions, list):
+            actions = []
+    except json.JSONDecodeError:
+        logger.warning("Claude returned malformed actions JSON; raw=%r", actions_str[:200])
+        actions = []
+
+    # Token-usage telemetry — useful for verifying prompt caching is working.
+    usage = getattr(resp, "usage", None)
+    if usage is not None:
+        logger.info(
+            "claude_turn input=%s output=%s cache_read=%s cache_write=%s actions=%d",
+            getattr(usage, "input_tokens", None),
+            getattr(usage, "output_tokens", None),
+            getattr(usage, "cache_read_input_tokens", None),
+            getattr(usage, "cache_creation_input_tokens", None),
+            len(actions),
+        )
+
+    return raw, say_text, actions
