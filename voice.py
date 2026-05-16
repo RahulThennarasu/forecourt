@@ -149,6 +149,10 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
             'Please call us back when you have a moment.</Say><Hangup/>'
         )
 
+    # Stamp the moment we received the guest's speech — close to "when the
+    # guest stopped talking". Used as the guest-side timestamp for the dashboard.
+    guest_ts = max(0, int(time.monotonic() - (state.get("started_at") or time.monotonic())))
+
     # Empty speech (rare with speechTimeout=auto, but Twilio can fire action
     # with no SpeechResult after long silence). Re-prompt briefly.
     if not speech:
@@ -218,16 +222,21 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
             "action": action,
         }))
 
-    # One rich `turn` event for the dashboard. Bundles everything a UI needs to
-    # render this turn as a single LogEntry: guest speech, agent reply, the
-    # cleaned action list, and a relative timestamp from call start.
+    # One rich `turn` event for the dashboard. Two timestamps: when the
+    # guest stopped talking (guest_ts_seconds, captured at handler entry) and
+    # when the agent's audio is ready (agent_ts_seconds, captured here after
+    # Claude + ElevenLabs). The visible gap reflects the real think+synthesise
+    # delay, which is what the user wanted to see distinguish guest vs agent.
     started_at = state.get("started_at") or time.monotonic()
-    ts_seconds = max(0, int(time.monotonic() - started_at))
+    agent_ts = max(guest_ts, int(time.monotonic() - started_at))
     asyncio.create_task(ws.broadcast({
         "type": "turn",
         "call_sid": call_sid,
         "turn_number": (len(history) // 2),
-        "ts_seconds": ts_seconds,
+        # Kept for back-compat with older clients; mirrors guest_ts_seconds.
+        "ts_seconds": guest_ts,
+        "guest_ts_seconds": guest_ts,
+        "agent_ts_seconds": agent_ts,
         "guest_speech": speech,
         "agent_say": say_text,
         "actions": actions,

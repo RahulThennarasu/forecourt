@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Calendar } from "./components/Calendar";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Sidebar, Page } from "./components/Sidebar";
 import { GuestsView } from "./components/GuestsView";
 import { LiveCallView } from "./components/LiveCallView";
@@ -27,13 +28,15 @@ export default function App() {
           transition={{ duration: 0.18 }}
           className="flex-1 overflow-hidden flex flex-col"
         >
-          {page === "calendar" && (
-            <div className="flex-1 overflow-hidden px-10 py-8">
-              <Calendar />
-            </div>
-          )}
-          {page === "guests" && <GuestsView />}
-          {page === "live" && <LiveCallView />}
+          <ErrorBoundary>
+            {page === "calendar" && (
+              <div className="flex-1 overflow-hidden px-10 py-8">
+                <Calendar />
+              </div>
+            )}
+            {page === "guests" && <GuestsView />}
+            {page === "live" && <LiveCallView />}
+          </ErrorBoundary>
         </motion.div>
       </AnimatePresence>
     </div>

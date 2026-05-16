@@ -5,7 +5,9 @@ import { useEffect, useState } from 'react';
 interface Props {
   guestName: string;
   phoneNumber: string;
-  callStartTime: number;
+  // Wall-clock timestamp (Date.now() ms) of when call_started arrived.
+  // null means no call is active — timer reads 00:00.
+  startedAtMs: number | null;
 }
 
 function formatTime(seconds: number): string {
@@ -14,15 +16,18 @@ function formatTime(seconds: number): string {
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
-export function CallHeader({ guestName, phoneNumber, callStartTime }: Props) {
-  const [callTime, setCallTime] = useState(0);
-
+export function CallHeader({ guestName, phoneNumber, startedAtMs }: Props) {
+  // Tick every 250ms so the displayed second updates without drift — elapsed
+  // is computed from wall clock each render, so a missed tick never lags.
+  const [, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCallTime((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    if (startedAtMs === null) return;
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [startedAtMs]);
+
+  const callTime =
+    startedAtMs === null ? 0 : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
 
   return (
     <div

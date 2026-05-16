@@ -5,6 +5,7 @@ const colorMap = {
   occasion_detected: '#A07850',
   memory_recall: '#1B3A2D',
   context_bridge: '#5A5EA0',
+  outside_service_bridge: '#5A5EA0',
   synthesis_complete: '#4A8C5C',
   preference_match: '#4A8C5C',
 };
@@ -13,6 +14,7 @@ const bgMap = {
   occasion_detected: '#F2ECE3',
   memory_recall: '#E8EEE9',
   context_bridge: '#E8E9F2',
+  outside_service_bridge: '#E8E9F2',
   synthesis_complete: '#ECEFEA',
   preference_match: '#ECEFEA',
 };

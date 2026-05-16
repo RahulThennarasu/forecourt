@@ -405,7 +405,16 @@ export function OrchestrationLog({ entries }: Props) {
                   <Step
                     label={labelForType(entry.decision.type)}
                     title={entry.decision.title || 'Response'}
-                    meta={entry.decision.duration ? `${entry.decision.duration.toFixed(3)}s` : formatTime(entry.timestamp)}
+                    meta={
+                      // Prefer the agent-specific timestamp from the live
+                      // socket (when the agent's audio is ready). Falls back
+                      // to mock's `duration`, then to the guest timestamp.
+                      typeof (entry.decision as { timestamp?: number }).timestamp === 'number'
+                        ? formatTime((entry.decision as { timestamp: number }).timestamp)
+                        : entry.decision.duration
+                          ? `${entry.decision.duration.toFixed(3)}s`
+                          : formatTime(entry.timestamp)
+                    }
                     tone="accent"
                     variant="main"
                     align="right"

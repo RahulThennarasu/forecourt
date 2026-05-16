@@ -21,7 +21,9 @@ interface LiveCallState {
   callSid: string | null;
   guestName: string;
   phoneNumber: string;
-  startTime: number;
+  // Wall-clock anchor (Date.now() at call_started) so CallHeader can compute
+  // accurate elapsed time. null when no call is active.
+  startedAtMs: number | null;
   entries: LogEntry[];
   leakLabels: string[];
 }
@@ -31,7 +33,7 @@ const EMPTY: LiveCallState = {
   callSid: null,
   guestName: '—',
   phoneNumber: '—',
-  startTime: 0,
+  startedAtMs: null,
   entries: [],
   leakLabels: [],
 };
@@ -61,7 +63,8 @@ const KEYWORD_RULES: Array<{ pattern: RegExp; type: KeywordType }> = [
   { pattern: /\blong flight\b/i, type: 'logistical' },
 ];
 
-function extractKeywords(text: string): Keyword[] {
+function extractKeywords(text: string | undefined | null): Keyword[] {
+  if (!text) return [];
   const seen = new Set<string>();
   const out: Keyword[] = [];
   for (const rule of KEYWORD_RULES) {
@@ -125,15 +128,24 @@ function mapAction(a: BackendAction, idx: number, sid: string, turn: number): Ac
 }
 
 function buildEntry(ev: Extract<SocketEvent, { type: 'turn' }>): LogEntry {
-  const keywords = extractKeywords(ev.guest_speech);
-  const hasOffer = ev.actions.some((a) => a.type === 'anticipatory_offer');
-  const wasGuarded = ev.leaks.length > 0;
+  const guestSpeech = ev.guest_speech || '';
+  const agentSay = ev.agent_say || '';
+  const actions = Array.isArray(ev.actions) ? ev.actions : [];
+  const leaks = Array.isArray(ev.leaks) ? ev.leaks : [];
+  // Older clients only saw ts_seconds; new clients see both. Fall back gracefully.
+  const guestTs = typeof ev.guest_ts_seconds === 'number' ? ev.guest_ts_seconds : ev.ts_seconds;
+  const agentTs =
+    typeof ev.agent_ts_seconds === 'number' ? ev.agent_ts_seconds : guestTs;
+
+  const keywords = extractKeywords(guestSpeech);
+  const hasOffer = actions.some((a) => a.type === 'anticipatory_offer');
+  const wasGuarded = leaks.length > 0;
 
   // Synthesize the "thinking" track only when something interesting happened
   // — keeps routine confirmations clean.
   const reasoning: LogEntry['reasoning'] = [];
   if (hasOffer) {
-    const offer = ev.actions.find((a) => a.type === 'anticipatory_offer');
+    const offer = actions.find((a) => a.type === 'anticipatory_offer');
     const p = (offer?.payload || {}) as Record<string, string>;
     if (p.recall) {
       reasoning.push({
@@ -159,28 +171,31 @@ function buildEntry(ev: Extract<SocketEvent, { type: 'turn' }>): LogEntry {
     reasoning.push({
       type: 'synthesis_complete',
       title: 'leak guard activated',
-      description: `Replaced with deflection: ${ev.leaks.join(', ')}`,
-      details: ev.leaks,
-      text: `Held back: ${ev.leaks.join(', ')}`,
+      description: `Replaced with deflection: ${leaks.join(', ')}`,
+      details: leaks,
+      text: `Held back: ${leaks.join(', ')}`,
     } as LogEntry['reasoning'][number] & { text: string });
   }
 
   return {
     id: `${ev.call_sid}_${ev.turn_number}`,
-    timestamp: ev.ts_seconds,
+    timestamp: guestTs,
     guestMessage: {
-      text: ev.guest_speech,
+      text: guestSpeech,
       keywords,
     },
     reasoning,
     decision: {
       type: hasOffer ? 'offer' : 'confirmation',
-      text: ev.agent_say,
+      text: agentSay,
       importance: wasGuarded || hasOffer ? 'critical' : 'standard',
-      // extra field rendered by OrchestrationLog as decision title:
+      // Extra fields rendered loosely by OrchestrationLog:
+      // - `title` shows in the decision label
+      // - `timestamp` lets the decision row show its own time-of-call
       title: hasOffer ? 'anticipatory offer' : 'response',
-    } as LogEntry['decision'] & { title: string },
-    actions: ev.actions.map((a, i) => mapAction(a, i, ev.call_sid, ev.turn_number)),
+      timestamp: agentTs,
+    } as LogEntry['decision'] & { title: string; timestamp: number },
+    actions: actions.map((a, i) => mapAction(a, i, ev.call_sid, ev.turn_number)),
   };
 }
 
@@ -197,14 +212,22 @@ export function CallOrchestrationView() {
     if (!last) return;
 
     if (last.type === 'call_started') {
-      setCallState({
-        status: 'in_progress',
-        callSid: last.call_sid,
-        guestName: last.guest_name,
-        phoneNumber: maskedPhone(last.phone_suffix),
-        startTime: 0,
-        entries: [],
-        leakLabels: [],
+      setCallState((prev) => {
+        // Idempotent: Twilio sometimes fires /voice twice per call (Primary +
+        // Fallback URL, or retry on slow response). Don't wipe the timeline
+        // mid-call when the second event arrives with the same CallSid.
+        if (prev.callSid === last.call_sid && prev.status === 'in_progress') {
+          return prev;
+        }
+        return {
+          status: 'in_progress',
+          callSid: last.call_sid,
+          guestName: last.guest_name,
+          phoneNumber: maskedPhone(last.phone_suffix),
+          startedAtMs: Date.now(),
+          entries: [],
+          leakLabels: [],
+        };
       });
       return;
     }
@@ -215,10 +238,13 @@ export function CallOrchestrationView() {
         // Ignore turns from a different call — defensive against late events
         // arriving after a new call has started.
         if (prev.callSid && prev.callSid !== last.call_sid) return prev;
+        // First event of a call may be a `turn` if call_started was dropped
+        // (rare, but defensive). Anchor startedAtMs in that case.
         return {
           ...prev,
           status: 'in_progress',
           callSid: prev.callSid || last.call_sid,
+          startedAtMs: prev.startedAtMs ?? Date.now(),
           entries: [...prev.entries, entry],
         };
       });
@@ -236,7 +262,7 @@ export function CallOrchestrationView() {
   if (callState.status === 'waiting') {
     return (
       <div className="h-full overflow-hidden flex flex-col" style={{ background: '#F5FAFF' }}>
-        <CallHeader guestName="Waiting" phoneNumber="—" callStartTime={0} />
+        <CallHeader guestName="Waiting" phoneNumber="—" startedAtMs={null} />
         <div className="flex-1 flex items-center justify-center">
           <motion.div
             initial={{ opacity: 0 }}
@@ -275,7 +301,7 @@ export function CallOrchestrationView() {
       <CallHeader
         guestName={callState.guestName}
         phoneNumber={callState.phoneNumber}
-        callStartTime={callState.startTime}
+        startedAtMs={callState.startedAtMs}
       />
       <OrchestrationLog entries={callState.entries} />
     </div>

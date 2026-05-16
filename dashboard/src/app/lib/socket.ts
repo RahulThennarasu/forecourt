@@ -35,7 +35,13 @@ export type SocketEvent =
       type: 'turn';
       call_sid: string;
       turn_number: number;
+      // Kept for back-compat; equals guest_ts_seconds.
       ts_seconds: number;
+      // Wall-clock-relative timestamps (seconds since call_started):
+      // guest_ts = when the guest stopped speaking; agent_ts = when the
+      // agent's audio is ready to play.
+      guest_ts_seconds: number;
+      agent_ts_seconds: number;
       guest_speech: string;
       agent_say: string;
       actions: BackendAction[];

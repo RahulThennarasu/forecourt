@@ -1,4 +1,4 @@
-import { CallState } from './mockCallData';
+import type { CallState } from './mockCallData';
 
 export const mockCallDataPhilip: CallState = {
   status: 'in_progress',
