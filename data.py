@@ -124,6 +124,6 @@ def lookup_guest(phone_number: str) -> dict | None:
     if hit is not None:
         return hit
     if _demo_mode():
-        demo_phone = os.environ.get("DEMO_PHONE_NUMBER", "+14155551234")
-        return GUESTS.get(demo_phone)
+        demo_phone = os.environ.get("DEMO_PHONE_NUMBER", "+14086100377")
+        return GUESTS.get(demo_phone) or _tanaka_profile()
     return None
