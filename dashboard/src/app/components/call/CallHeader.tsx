@@ -8,6 +8,9 @@ interface Props {
   // Wall-clock timestamp (Date.now() ms) of when call_started arrived.
   // null means no call is active — timer reads 00:00.
   startedAtMs: number | null;
+  // Wall-clock timestamp of call_ended. When set, the timer freezes at the
+  // final duration and the status switches to "Call Ended".
+  endedAtMs?: number | null;
 }
 
 function formatTime(seconds: number): string {
@@ -16,18 +19,25 @@ function formatTime(seconds: number): string {
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
-export function CallHeader({ guestName, phoneNumber, startedAtMs }: Props) {
+export function CallHeader({ guestName, phoneNumber, startedAtMs, endedAtMs = null }: Props) {
   // Tick every 250ms so the displayed second updates without drift — elapsed
   // is computed from wall clock each render, so a missed tick never lags.
+  // When the call has ended, stop ticking (the value is frozen anyway).
   const [, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (startedAtMs === null) return;
+    if (startedAtMs === null || endedAtMs !== null) return;
     const id = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(id);
-  }, [startedAtMs]);
+  }, [startedAtMs, endedAtMs]);
 
   const callTime =
-    startedAtMs === null ? 0 : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
+    startedAtMs === null
+      ? 0
+      : endedAtMs !== null
+        ? Math.max(0, Math.floor((endedAtMs - startedAtMs) / 1000))
+        : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
+
+  const ended = endedAtMs !== null;
 
   return (
     <div
@@ -36,12 +46,19 @@ export function CallHeader({ guestName, phoneNumber, startedAtMs }: Props) {
     >
       {/* Left: Status */}
       <div className="flex items-center gap-2" style={{ minWidth: 140 }}>
-        <motion.div
-          animate={{ opacity: [0.4, 1, 0.4] }}
-          transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-          className="w-1.5 h-1.5 rounded-full"
-          style={{ background: '#9BCFEF' }}
-        />
+        {ended ? (
+          <div
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: '#C7CED4' }}
+          />
+        ) : (
+          <motion.div
+            animate={{ opacity: [0.4, 1, 0.4] }}
+            transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: '#9BCFEF' }}
+          />
+        )}
         <p
           className="text-xs font-medium tracking-wide uppercase"
           style={{
@@ -51,7 +68,7 @@ export function CallHeader({ guestName, phoneNumber, startedAtMs }: Props) {
             letterSpacing: '0.12em',
           }}
         >
-          In Call
+          {ended ? 'Call Ended' : 'In Call'}
         </p>
         <p
           className="text-xs"

@@ -24,6 +24,9 @@ interface LiveCallState {
   // Wall-clock anchor (Date.now() at call_started) so CallHeader can compute
   // accurate elapsed time. null when no call is active.
   startedAtMs: number | null;
+  // Wall-clock anchor (Date.now() at call_ended) — when set, CallHeader
+  // freezes the timer at the final duration.
+  endedAtMs: number | null;
   entries: LogEntry[];
   leakLabels: string[];
 }
@@ -34,6 +37,7 @@ const EMPTY: LiveCallState = {
   guestName: '—',
   phoneNumber: '—',
   startedAtMs: null,
+  endedAtMs: null,
   entries: [],
   leakLabels: [],
 };
@@ -225,9 +229,18 @@ export function CallOrchestrationView() {
           guestName: last.guest_name,
           phoneNumber: maskedPhone(last.phone_suffix),
           startedAtMs: Date.now(),
+          endedAtMs: null,
           entries: [],
           leakLabels: [],
         };
+      });
+      return;
+    }
+
+    if (last.type === 'call_ended') {
+      setCallState((prev) => {
+        if (prev.callSid !== last.call_sid) return prev;
+        return { ...prev, status: 'ended', endedAtMs: Date.now() };
       });
       return;
     }
@@ -240,9 +253,12 @@ export function CallOrchestrationView() {
         if (prev.callSid && prev.callSid !== last.call_sid) return prev;
         // First event of a call may be a `turn` if call_started was dropped
         // (rare, but defensive). Anchor startedAtMs in that case.
+        // Keep status 'in_progress' even if a stray turn arrives after
+        // call_ended — don't promote back from ended → in_progress.
+        const nextStatus = prev.status === 'ended' ? 'ended' : 'in_progress';
         return {
           ...prev,
-          status: 'in_progress',
+          status: nextStatus,
           callSid: prev.callSid || last.call_sid,
           startedAtMs: prev.startedAtMs ?? Date.now(),
           entries: [...prev.entries, entry],
@@ -262,7 +278,7 @@ export function CallOrchestrationView() {
   if (callState.status === 'waiting') {
     return (
       <div className="h-full overflow-hidden flex flex-col" style={{ background: '#F5FAFF' }}>
-        <CallHeader guestName="Waiting" phoneNumber="—" startedAtMs={null} />
+        <CallHeader guestName="Waiting" phoneNumber="—" startedAtMs={null} endedAtMs={null} />
         <div className="flex-1 flex items-center justify-center">
           <motion.div
             initial={{ opacity: 0 }}
@@ -302,6 +318,7 @@ export function CallOrchestrationView() {
         guestName={callState.guestName}
         phoneNumber={callState.phoneNumber}
         startedAtMs={callState.startedAtMs}
+        endedAtMs={callState.endedAtMs}
       />
       <OrchestrationLog entries={callState.entries} />
     </div>

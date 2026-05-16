@@ -56,6 +56,12 @@ export type SocketEvent =
       type: 'leak_guard';
       call_sid: string;
       labels: string[];
+    }
+  | {
+      type: 'call_ended';
+      call_sid: string;
+      ts_seconds: number;
+      reason: 'guest_closed' | string;
     };
 
 type ConnectionStatus = 'connecting' | 'open' | 'closed';

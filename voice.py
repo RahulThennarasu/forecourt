@@ -60,6 +60,26 @@ GATHER = (
 # Per-turn synthesized audio. Served via the /audio static mount in main.py.
 TURNS_DIR = Path("audio/turns")
 
+# When the guest's utterance reads as a closing, /respond returns Play + Hangup
+# (no Gather) so the agent's last line plays, then the call ends cleanly.
+# Long utterances that happen to contain "thanks" don't terminate — they're
+# probably "thanks for that, but also…"
+_CLOSING_TRIGGERS = (
+    "thank you", "thanks", "that's all", "thats all", "that is all",
+    "we're good", "were good", "we are good", "all set", "we're all set",
+    "bye", "goodbye", "good bye", "see you", "talk to you later",
+    "appreciate it", "cheers", "perfect thanks", "great thanks",
+)
+
+
+def _is_closing_utterance(speech: str) -> bool:
+    s = (speech or "").lower().strip()
+    if not s:
+        return False
+    if len(s.split()) > 8:
+        return False
+    return any(trigger in s for trigger in _CLOSING_TRIGGERS)
+
 
 async def _twilio_form(request: Request) -> dict[str, str]:
     """Parse Twilio's form-encoded POST without depending on python-multipart."""
@@ -166,6 +186,11 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
     history: list[dict] = state["history"]
     history.append({"role": "user", "content": speech})
 
+    # If the guest just signalled closing, this turn is the last one — the
+    # agent will speak its goodbye and Twilio will hang up immediately after,
+    # no trailing 6s silence wait on the Gather.
+    is_closing = _is_closing_utterance(speech)
+
     try:
         system_prompt = build_system_prompt(guest, LOCAL_CONTEXT)
         raw, say_text, actions = await call_claude(system_prompt, history)
@@ -244,17 +269,31 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
     }))
 
     # Synthesize the spoken reply. Fall back to Polly if ElevenLabs fails.
+    # On a closing turn the trailing TwiML is just <Hangup/> — no <Gather>,
+    # so the call ends as soon as the agent's goodbye finishes playing
+    # instead of waiting 6s for more silence.
+    trailer = "<Hangup/>" if is_closing else f"{GATHER}<Hangup/>"
     turn_n = len(history) // 2  # one user + one assistant per turn
     audio_path = TURNS_DIR / f"{call_sid}_{turn_n}.mp3"
     try:
         await synthesize(say_text, audio_path)
         play_url = f"/audio/turns/{audio_path.name}"
-        body = f'<Play>{play_url}</Play>{GATHER}<Hangup/>'
+        body = f'<Play>{play_url}</Play>{trailer}'
     except Exception:
         logger.exception("elevenlabs_failed sid=%s — falling back to Polly", call_sid)
         body = (
             f'<Say voice="Polly.Joanna">{html.escape(say_text)}</Say>'
-            f'{GATHER}<Hangup/>'
+            f'{trailer}'
         )
+
+    if is_closing:
+        # Tell the dashboard the call has wrapped. Fire-and-forget so it never
+        # blocks the TwiML response.
+        asyncio.create_task(ws.broadcast({
+            "type": "call_ended",
+            "call_sid": call_sid,
+            "ts_seconds": agent_ts,
+            "reason": "guest_closed",
+        }))
 
     return _twiml(body)
