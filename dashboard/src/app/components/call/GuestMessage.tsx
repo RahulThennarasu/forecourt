@@ -16,8 +16,14 @@ function formatTime(seconds: number): string {
   return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
-function renderTextWithHighlights(text: string, keywords: Keyword[]) {
-  if (!keywords.length) return text;
+function renderTextWithHighlights(
+  text: string,
+  keywords: Keyword[],
+): Array<{ text: string; keyword?: Keyword }> {
+  // Always return a parts[] array. The original Figma export returned the raw
+  // string in the no-keywords branch, which crashed at the call site (which
+  // does parts.map(...)) on any turn without highlighted triggers.
+  if (!keywords.length) return [{ text }];
 
   const sortedKeywords = [...keywords].sort((a, b) => text.indexOf(a.word) - text.indexOf(b.word));
 
