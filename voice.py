@@ -85,8 +85,13 @@ async def voice(request: Request) -> PlainTextResponse:
     guest = lookup_guest(from_number)
     phone_suffix = from_number[-4:] if from_number else ""
 
+    started_at = time.monotonic()
     if guest is not None:
-        active_calls[call_sid] = {"guest": guest, "history": []}
+        active_calls[call_sid] = {
+            "guest": guest,
+            "history": [],
+            "started_at": started_at,
+        }
         logger.info(
             "call_started sid=%s name=%s phone_suffix=%s",
             call_sid, guest["name"], phone_suffix,
@@ -96,12 +101,17 @@ async def voice(request: Request) -> PlainTextResponse:
             "type": "call_started",
             "call_sid": call_sid,
             "guest_name": guest["name"],
+            "phone_suffix": phone_suffix,
         }))
         return _twiml(f'<Play>{OPENING_HOOK_URL}</Play>{GATHER}')
 
     # Walk-in: no profile, no demo fallback. Track the call so /respond can
     # still find it, but skip the call_started WS event per spec.
-    active_calls[call_sid] = {"guest": None, "history": []}
+    active_calls[call_sid] = {
+        "guest": None,
+        "history": [],
+        "started_at": started_at,
+    }
     logger.info(
         "call_started sid=%s name=walk-in phone_suffix=%s",
         call_sid, phone_suffix,
@@ -207,6 +217,22 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
             "call_sid": call_sid,
             "action": action,
         }))
+
+    # One rich `turn` event for the dashboard. Bundles everything a UI needs to
+    # render this turn as a single LogEntry: guest speech, agent reply, the
+    # cleaned action list, and a relative timestamp from call start.
+    started_at = state.get("started_at") or time.monotonic()
+    ts_seconds = max(0, int(time.monotonic() - started_at))
+    asyncio.create_task(ws.broadcast({
+        "type": "turn",
+        "call_sid": call_sid,
+        "turn_number": (len(history) // 2),
+        "ts_seconds": ts_seconds,
+        "guest_speech": speech,
+        "agent_say": say_text,
+        "actions": actions,
+        "leaks": leaks,
+    }))
 
     # Synthesize the spoken reply. Fall back to Polly if ElevenLabs fails.
     turn_n = len(history) // 2  # one user + one assistant per turn

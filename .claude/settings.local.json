@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "Bash(echo \"---exit $?---\")",
+      "Bash(npx vite *)"
     ]
   }
 }
