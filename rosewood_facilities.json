@@ -1,0 +1,143 @@
+{
+  "hotel_name": "Rosewood Sand Hill",
+  "location": "Menlo Park, California",
+  "total_estate_size": "16 acres",
+  "facilities": {
+    "dining_and_culinary": [
+      {
+        "name": "Madera",
+        "type": "Signature Restaurant",
+        "accolades": [
+          "Forbes Travel Guide One-Star",
+          "Wine Spectator Grand Award"
+        ],
+        "description": "The resort’s premier dining destination featuring an open kitchen and an expansive outdoor terrace with sweeping views of the Santa Cruz Mountains.",
+        "cuisine": "Refined, regionally-inspired Northern California cuisine highlighting sustainably sourced ingredients from local purveyors.",
+        "atmosphere": "A handsome, sun-drenched indoor dining room with a massive wall of windows and multiple stone fireplaces.",
+        "bespoke_options": "Offers private indoor dining rooms and dedicated terraces for customized culinary gatherings or private events."
+      },
+      {
+        "name": "Madera Bar",
+        "type": "Upscale Lounge & Bar",
+        "description": "A vibrant social hub located adjacent to the main restaurant, highly popular with both hotel guests and local Silicon Valley professionals.",
+        "offerings": "Handcrafted seasonal cocktails, premium fine wines, and a curated menu of sophisticated light bites.",
+        "entertainment": "Hosts 'Friday Nights @ Madera Bar,' featuring live jazz performances or professional DJs spinning classic vinyl on alternating weeks.",
+        "vibe": "Expands onto an outdoor terrace with fireside seating overlooking the mountains, ideal for networking or evening relaxation."
+      },
+      {
+        "name": "Bici Coffee",
+        "type": "Boutique Coffee Shop",
+        "description": "A cycling-inspired cafe nestled within the estate that caters to hotel guests, locals, and cycling enthusiasts passing through Sand Hill Road.",
+        "menu": "Artfully prepared espresso drinks, premium coffees, house-baked pastries, and light, nutritious morning snacks.",
+        "concept": "Designed as a social pit-stop reflecting the active, outdoor lifestyle of the surrounding Menlo Park community."
+      },
+      {
+        "name": "Pool Bar & Grill & Dining Services",
+        "type": "Poolside & Specialty Dining",
+        "description": "Handles seasonal poolside dining, high-end afternoon tea collaborations, and standard in-room culinary services.",
+        "pool_service": "Delivers refreshing cocktails, fresh juices, and a summer-themed lunch menu directly to lounge chairs or private cabanas from late morning through late afternoon.",
+        "afternoon_tea": "An elegant, reimagined traditional tea experience featuring premium loose-leaf selections paired with artisan chocolate-infused pastries and savories (such as the Rosewood x Dandelion Chocolate partnership).",
+        "in_room_dining": "Provides full room service day and night, allowing guests to enjoy Madera-crafted dishes in the privacy of their rooms or private terraces."
+      }
+    ],
+    "wellness_spa_and_beauty": [
+      {
+        "name": "Asaya Spa",
+        "type": "Wellness Sanctuary",
+        "description": "A newly reimagined, state-of-the-art wellness facility focused on holistic vitality, tailored self-care rituals, and full-body rejuvenation.",
+        "treatment_rooms": 13,
+        "services": "Advanced skin solutions and restorative body therapies utilizing premier luxury lines like QMS and EviDenS de Beauté.",
+        "amenities": "Premium steam rooms, traditional saunas, and a private outdoor whirlpool Jacuzzi for pre- or post-treatment relaxation.",
+        "membership_options": "Offers an exclusive Lifestyle Membership providing ongoing access to the facilities, tailored wellness paths, and spa privileges."
+      },
+      {
+        "name": "Sand Hill Salon",
+        "type": "Full-Service Beauty Salon",
+        "description": "The premier on-site beauty destination providing professional hair styling and aesthetic care in an elegant environment.",
+        "services": "High-end haircuts, color treatments, blowouts, and specialized styling for weddings, galas, or corporate events.",
+        "convenience": "Positioned within the resort to serve guests needing professional grooming before upscale dinners or corporate meetings."
+      },
+      {
+        "name": "Fitness Center & Motion Studio",
+        "type": "Health Club & Movement Space",
+        "description": "A comprehensive health club facility overlooking the resort’s lush courtyards, designed to cater to all fitness levels with a bright, welcoming environment.",
+        "equipment": "Cutting-edge cardio machines, strength-training equipment, and a complete selection of free weights.",
+        "classes": "Features a full calendar of group exercise classes, including specialized Saturday morning lawn yoga, pilates, and guided sound bath meditations.",
+        "personal_training": "Arranges one-on-one private instruction and tailored movement sessions upon request."
+      }
+    ],
+    "pools_and_outdoor_relaxation": [
+      {
+        "name": "Outdoor Heated Pool",
+        "type": "Central Resort Pool",
+        "description": "The central oasis of the resort property, framed beautifully by a backdrop of olive trees and distant mountain ranges.",
+        "length": "25-meter Olympic style",
+        "temperature_control": "Fully heated to a comfortable degree year-round",
+        "hours": "Open daily from 8:00 AM to 10:00 PM",
+        "policies": "Safe for families and guests of all ages; county health codes strictly prohibit pets from entering the pool deck or hot tub areas."
+      },
+      {
+        "name": "Private Poolside Cabanas",
+        "type": "Premium Lounge Spaces",
+        "description": "Elevated, secluded lounge spaces surrounding the main pool perimeter, perfect for guests seeking exclusivity and personalized comfort.",
+        "amenities": "Outfitted with premium outdoor furnishings, privacy drapes, and dedicated butler service.",
+        "refreshments": "Guests can order handcrafted beverages and artisanal plates from the Pool Bar directly to their cabana for a seamless leisure day."
+      }
+    ],
+    "event_venues_and_gardens": [
+      {
+        "name": "Vista Lawn & Indoor Ballrooms",
+        "type": "Conference, Banquet & Wedding Spaces",
+        "total_square_feet": 14360,
+        "configurations": 13,
+        "description": "A sophisticated collection of indoor and outdoor spaces engineered to host high-profile Silicon Valley gatherings, social galas, and weddings.",
+        "key_spaces": [
+          {
+            "space_name": "Vista Lawn",
+            "size_square_feet": 5375,
+            "capacity": "Up to 400 guests",
+            "type": "Manicured grass outdoor venue"
+          },
+          {
+            "space_name": "Ballrooms A & B",
+            "size_square_feet": 1384,
+            "features": "16-foot vaulted ceilings and state-of-the-art presentation technology",
+            "type": "Indoor event spaces"
+          }
+        ]
+      },
+      {
+        "name": "Manicured Gardens & Courtyards",
+        "type": "Outdoor Grounds & Reational Green Space",
+        "description": "Arcaded gardens and inner courtyards defining the open-air, indoor-outdoor essence of the property with a tranquil backdrop of California flora.",
+        "features": "Flowering regional plants, winding stone pathways, and hidden seating alcoves perfect for reading or private reflection.",
+        "recreation": "Features a dedicated bocce ball court nestled within the grounds for casual afternoon entertainment."
+      }
+    ],
+    "personalized_programs_and_guest_amenities": [
+      {
+        "name": "Mercedes-Benz Driving Experience & Transport Services",
+        "type": "Luxury Transportation Program",
+        "description": "An exclusive partnership program providing high-end transport options to enhance Northern California travel.",
+        "test_drives": "Overnight guests can reserve and pilot a premium Mercedes-Benz vehicle directly through the front office to explore the scenic coastal ranges.",
+        "town_car_service": "Complimentary town car transportation provided within a five-mile radius of the hotel, ensuring hassle-free travel to local destinations.",
+        "e_bikes": "Complimentary electric bicycles available (subject to availability) for eco-friendly trail riding and local exploration."
+      },
+      {
+        "name": "Rose Buds for Children",
+        "type": "Children & Family Program",
+        "description": "The resort's dedicated youth program ensuring younger guests receive a fully tailored and engaging vacation experience.",
+        "activities": "Curated outdoor adventures, hands-on arts and crafts, and kid-friendly culinary workshops.",
+        "amenities": "Specialized children's menus, cribs, child-proofing room items, and professional babysitting services arranged upon request through the concierge."
+      },
+      {
+        "name": "Exclusive Recreation & Concierge Privileges",
+        "type": "Bespoke Concierge & Business Services",
+        "description": "An elite concierge desk dedicated to orchestrating highly personalized off-site recreation and luxury services tailored to each individual guest's lifestyle.",
+        "golf_access": "Arranges exclusive playing privileges at the highly private, top-ranked Stanford University Golf Course.",
+        "curated_excursions": "Coordinates personalized falconry experiences, guided mountain hikes, local wine-tasting tours, and VIP access to historic nearby estates like Filoli.",
+        "business_center": "A fully functioning business hub offering high-speed wired and wireless internet, document services, and private meeting setups."
+      }
+    ]
+  }
+}

@@ -28,7 +28,7 @@ export function CallOrchestrationView() {
   }, []);
 
   return (
-    <div className="h-full overflow-hidden flex flex-col" style={{ background: '#FFFBF8' }}>
+    <div className="h-full overflow-hidden flex flex-col" style={{ background: '#F5FAFF' }}>
       <CallHeader
         guestName={callState.guestName}
         phoneNumber={callState.phoneNumber}
