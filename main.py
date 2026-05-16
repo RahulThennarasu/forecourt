@@ -26,7 +26,7 @@ from fastapi.staticfiles import StaticFiles
 
 import db
 import ws
-from data import load_guests_from_db, seed_tanaka_profile
+from data import load_guests_from_db, seed_philip_profile, seed_tanaka_profile
 from synthesis import ensure_opening_hook
 from voice import router as voice_router
 
@@ -82,6 +82,7 @@ async def get_call(call_sid: str) -> dict:
 async def startup() -> None:
     db.init_db()
     seed_tanaka_profile()
+    seed_philip_profile()
     n = load_guests_from_db()
     demo = os.environ.get("DEMO_MODE", "false").strip().lower() == "true"
     logger.info(
