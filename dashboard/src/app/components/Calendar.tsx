@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import rosewoodFacilities from "../../../../rosewood_facilities.json";
 import { useLiveBookings } from "@/app/lib/bookings";
 
@@ -55,15 +55,8 @@ function mkId(prefix: string, i: number) {
 // All events: those with startHour are timed; those without are all-day/multi-day
 // Rosewood-specific programming + stays around May 2026.
 export const EVENTS: CalEvent[] = [
-  // Stays / VIPs
-  {
-    id: "stay-1",
-    title: "Tanaka — Anniversary Weekend",
-    start: "2026-05-16",
-    end: "2026-05-18",
-    type: "vip",
-    detail: `${ROSEWOOD_NAME} · Corner Suite · Anniversary weekend`,
-  },
+  // Stays / VIPs (entries overlapping May 16–17 cleared so live demo events
+  // on those days stand alone)
   {
     id: "stay-2",
     title: "Harrington — Board Retreat",
@@ -71,14 +64,6 @@ export const EVENTS: CalEvent[] = [
     end: "2026-05-10",
     type: "vip",
     detail: `${ROSEWOOD_NAME} · Executive hosts · Quiet work blocks reserved`,
-  },
-  {
-    id: "stay-3",
-    title: "Williams Family Stay",
-    start: "2026-05-14",
-    end: "2026-05-17",
-    type: "stay",
-    detail: `${ROSEWOOD_NAME} · Family amenities · Rose Buds program requested`,
   },
   {
     id: "stay-4",
@@ -90,16 +75,6 @@ export const EVENTS: CalEvent[] = [
   },
 
   // Key arrivals / check-in touchpoints
-  {
-    id: "vip-arr-1",
-    title: "Tanaka Arrival",
-    start: "2026-05-16",
-    end: "2026-05-16",
-    type: "vip",
-    detail: "Town car standby · VIP welcome · Luggage to suite",
-    startHour: 17,
-    endHour: 18,
-  },
   {
     id: "vip-arr-2",
     title: "Harrington Check-in",
@@ -121,39 +96,7 @@ export const EVENTS: CalEvent[] = [
     endHour: 16,
   },
 
-  // Dining (Rosewood facilities)
-  {
-    id: "din-1",
-    title: `${MADERA?.name || "Madera"} Dinner`,
-    start: "2026-05-16",
-    end: "2026-05-16",
-    type: "dining",
-    detail: "Outdoor terrace preference · Wine service note · Fireside seating if cool",
-    startHour: 19,
-    endHour: 21,
-  },
-  {
-    id: "din-2",
-    title: `${BICI?.name || "Bici Coffee"} — Morning Pickup`,
-    start: "2026-05-17",
-    end: "2026-05-17",
-    type: "dining",
-    detail: "House pastries · Espresso drinks · Early start option",
-    startHour: 8,
-    endHour: 8.5,
-  } as any,
-  {
-    id: "din-3",
-    title: "Afternoon Tea (Pool Bar & Grill)",
-    start: "2026-05-17",
-    end: "2026-05-17",
-    type: "dining",
-    detail:
-      POOL_DINING?.afternoon_tea ||
-      "Reimagined tea service · Premium loose-leaf · Chocolate-infused pastries",
-    startHour: 15,
-    endHour: 16.5,
-  } as any,
+  // Dining (Rosewood facilities) — 5/16 and 5/17 entries cleared
   // Friday nights at the bar (weekly programming)
   ...[
     "2026-05-08",
@@ -173,19 +116,7 @@ export const EVENTS: CalEvent[] = [
     endHour: 22,
   })),
 
-  // Wellness (Asaya, Fitness/Motion)
-  {
-    id: "spa-1",
-    title: `${ASAYA?.name || "Asaya Spa"} — Couples Reset`,
-    start: "2026-05-17",
-    end: "2026-05-17",
-    type: "spa",
-    detail:
-      ASAYA?.amenities ||
-      "Steam/sauna + outdoor whirlpool · Pre-treatment arrival 20 min",
-    startHour: 10,
-    endHour: 12,
-  },
+  // Wellness (Asaya, Fitness/Motion) — 5/17 entry cleared
   {
     id: "spa-2",
     title: `${ASAYA?.name || "Asaya Spa"} — Skin Solutions`,
@@ -197,7 +128,6 @@ export const EVENTS: CalEvent[] = [
     endHour: 10.5,
   } as any,
   ...[
-    "2026-05-16",
     "2026-05-23",
     "2026-05-30",
   ].map((d, i) => ({
@@ -211,17 +141,7 @@ export const EVENTS: CalEvent[] = [
     endHour: 10,
   })),
 
-  // Outdoor leisure (pool / cabanas)
-  {
-    id: "pool-1",
-    title: "Poolside Cabana Hold",
-    start: "2026-05-16",
-    end: "2026-05-16",
-    type: "stay",
-    detail: `${POOL?.hours || "Daily 8:00 AM – 10:00 PM"} · Butler service · Pool Bar delivery`,
-    startHour: 12,
-    endHour: 15,
-  },
+  // Outdoor leisure (pool / cabanas) — 5/16 entry cleared
 
   // Events (Vista Lawn + ballrooms)
   {
@@ -463,6 +383,17 @@ export function Calendar() {
   const [dir, setDir]             = useState(1);
   const [tooltip, setTooltip]     = useState<TooltipState | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // Tracks which event rows are open in DayView. Default state is collapsed —
+  // header is the main content, click reveals the detail line.
+  const [expandedEventIds, setExpandedEventIds] = useState<Set<string>>(() => new Set());
+  const toggleEventExpanded = useCallback((id: string) => {
+    setExpandedEventIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   // Live bookings produced by the conversation pipeline. Calendar treats them
   // identically to the hardcoded EVENTS — they get folded into the same lists
@@ -1056,25 +987,107 @@ export function Calendar() {
               {dayEvents.map((ev, i) => {
                 const s = EVENT_STYLES[ev.type];
                 const nights = Math.round((toDate(ev.end).getTime() - toDate(ev.start).getTime()) / 86400000);
+                const expanded = expandedEventIds.has(ev.id);
+                const hasDetail = Boolean(ev.detail);
                 return (
-                  <motion.div key={ev.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}
-                    className="flex items-center gap-5 px-6 py-5 rounded-lg" style={{ background: s.bg }}>
-                    <div className="flex-1">
-                      <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.9375rem", color: s.text }}>{ev.title}</p>
-                      <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.6875rem", color: s.text, opacity: 0.6, marginTop: 3, textTransform: "uppercase", letterSpacing: "0.07em" }}>{s.label}</p>
-                    </div>
-                    <div className="text-right">
-                      {ev.startHour !== undefined ? (
-                        <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.75rem", color: s.text, opacity: 0.55 }}>
-                          {fmtHour(ev.startHour)} – {fmtHour(ev.endHour!)}
+                  <motion.div
+                    key={ev.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.07 }}
+                    onClick={() => hasDetail && toggleEventExpanded(ev.id)}
+                    className={`rounded-lg ${hasDetail ? "cursor-pointer" : ""}`}
+                    style={{ background: s.bg }}
+                  >
+                    {/* Header row — always visible. Title + label on the left,
+                        time on the right. Detail is hidden until expanded. */}
+                    <div className="flex items-center gap-5 px-6 py-5">
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className="truncate"
+                          style={{
+                            fontFamily: "General Sans, sans-serif",
+                            fontSize: "0.9375rem",
+                            color: s.text,
+                          }}
+                        >
+                          {ev.title}
                         </p>
-                      ) : (
-                        <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.75rem", color: s.text, opacity: 0.55 }}>
-                          {ev.start === ev.end ? "Single day" : `${nights} night${nights !== 1 ? "s" : ""}`}
+                        <p
+                          style={{
+                            fontFamily: "General Sans, sans-serif",
+                            fontSize: "0.6875rem",
+                            color: s.text,
+                            opacity: 0.6,
+                            marginTop: 3,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.07em",
+                          }}
+                        >
+                          {s.label}
                         </p>
-                      )}
-                      {ev.detail && <p style={{ fontFamily: "General Sans, sans-serif", fontSize: "0.6875rem", color: s.text, opacity: 0.4, marginTop: 2 }}>{ev.detail}</p>}
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <p
+                          style={{
+                            fontFamily: "General Sans, sans-serif",
+                            fontSize: "0.75rem",
+                            color: s.text,
+                            opacity: 0.55,
+                          }}
+                        >
+                          {ev.startHour !== undefined
+                            ? `${fmtHour(ev.startHour)} – ${fmtHour(ev.endHour!)}`
+                            : ev.start === ev.end
+                              ? "Single day"
+                              : `${nights} night${nights !== 1 ? "s" : ""}`}
+                        </p>
+                        {hasDetail ? (
+                          <ChevronDown
+                            className="w-3.5 h-3.5"
+                            style={{
+                              color: s.text,
+                              opacity: 0.5,
+                              transition: "transform 0.18s",
+                              transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+                              strokeWidth: 1.75,
+                            }}
+                          />
+                        ) : null}
+                      </div>
                     </div>
+
+                    {/* Expanded detail — animated open/close. */}
+                    <AnimatePresence initial={false}>
+                      {expanded && hasDetail ? (
+                        <motion.div
+                          key="detail"
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.18 }}
+                          style={{ overflow: "hidden" }}
+                        >
+                          <div
+                            className="px-6 pb-5"
+                            style={{ borderTop: `1px solid ${s.text}22` }}
+                          >
+                            <p
+                              style={{
+                                fontFamily: "General Sans, sans-serif",
+                                fontSize: "0.8125rem",
+                                color: s.text,
+                                opacity: 0.75,
+                                lineHeight: 1.5,
+                                marginTop: 12,
+                              }}
+                            >
+                              {ev.detail}
+                            </p>
+                          </div>
+                        </motion.div>
+                      ) : null}
+                    </AnimatePresence>
                   </motion.div>
                 );
               })}

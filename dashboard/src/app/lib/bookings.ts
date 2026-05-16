@@ -184,19 +184,39 @@ function categoryFor(actionType: BackendActionType): LiveBooking['category'] {
   }
 }
 
+// Claude's payload fields can run a full paragraph ("Guest requests fireworks
+// display for 2nd anniversary celebration at 22:00, approximately 15 minutes
+// duration. Confirm feasibility, permits..."). For the Calendar header we want
+// a compact label; the full text lives in `detail` for the expand view.
+function shortenForHeader(text: string, max = 48): string {
+  if (!text) return text;
+  let t = text.replace(
+    /^(?:guest\s+(?:requests?|is\s+(?:asking|requesting))\s+(?:a|an|for|to)?\s*|please\s+|kindly\s+)/i,
+    '',
+  );
+  t = t.replace(/\s+/g, ' ').trim();
+  // First clause (before sentence-level punctuation) is usually the label.
+  const firstClause = t.split(/[.;:—]\s|,\s(?=[a-z])/i)[0].trim();
+  let candidate = firstClause.length >= 8 && firstClause.length <= max ? firstClause : t;
+  if (candidate.length > max) candidate = candidate.slice(0, max - 1).trimEnd() + '…';
+  // Capitalise the first letter; Claude sometimes starts mid-sentence.
+  if (candidate.length > 0) candidate = candidate[0].toUpperCase() + candidate.slice(1);
+  return candidate;
+}
+
 function titleFor(action: BackendAction, guestName: string): string {
   const p = (action.payload || {}) as Record<string, string>;
   switch (action.type) {
     case 'dining_request':
-      return `${guestName} — ${p.request || 'Dining'}`;
+      return `${guestName} — ${shortenForHeader(p.request || 'Dining')}`;
     case 'room_request':
-      return `${guestName} — ${p.request || 'Room request'}`;
+      return `${guestName} — ${shortenForHeader(p.request || 'Room request')}`;
     case 'anticipatory_offer':
-      return `${guestName} — ${p.proposal || 'Anticipatory offer'}`;
+      return `${guestName} — ${shortenForHeader(p.proposal || 'Anticipatory offer')}`;
     case 'flag_for_staff':
-      return `${guestName} — ${p.note || 'Staff request'}`;
+      return `${guestName} — ${shortenForHeader(p.note || 'Staff request')}`;
     case 'preference_note':
-      return `${guestName} — ${p.note || 'Preference'}`;
+      return `${guestName} — ${shortenForHeader(p.note || 'Preference')}`;
     default:
       return `${guestName} — ${action.type}`;
   }
