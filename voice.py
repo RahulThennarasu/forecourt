@@ -39,13 +39,16 @@ active_calls: dict[str, dict] = {}
 OPENING_HOOK_URL = "/audio/opening_tanaka.mp3"
 RESPOND_ACTION = "/respond"
 
-# speechTimeout="auto" — Twilio detects end-of-utterance smartly.
+# speechTimeout="1" — fixed 1s of trailing silence before Twilio POSTs to
+# /respond. Tighter than "auto" (~1.5-2s typical), saves perceived latency.
+# Tradeoff: cuts off if the guest pauses >1s mid-sentence. Bump back to
+# "auto" if you hit that.
 # timeout="6" — if the guest doesn't start speaking within 6s, fall through
 # to the verb AFTER the Gather (a <Hangup/> in /respond) so the call ends
 # cleanly instead of hanging open.
 GATHER = (
     f'<Gather input="speech" action="{RESPOND_ACTION}" method="POST" '
-    f'speechTimeout="auto" timeout="6" language="en-US"/>'
+    f'speechTimeout="1" timeout="6" language="en-US"/>'
 )
 
 # Per-turn synthesized audio. Served via the /audio static mount in main.py.

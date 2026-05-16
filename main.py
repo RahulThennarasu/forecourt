@@ -62,7 +62,7 @@ async def startup() -> None:
     hook = AUDIO_DIR / "opening_tanaka.mp3"
     if not hook.exists():
         logger.info("opening hook missing — attempting auto-generation via ElevenLabs")
-        generated = ensure_opening_hook(AUDIO_DIR)
+        generated = await ensure_opening_hook(AUDIO_DIR)
         if generated is None:
             logger.error(
                 "Missing %s and auto-generation failed (no ELEVENLABS_API_KEY or "
