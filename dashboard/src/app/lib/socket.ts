@@ -32,18 +32,26 @@ export type SocketEvent =
       phone_suffix: string;
     }
   | {
-      type: 'turn';
+      // Fired the moment Twilio's transcript reaches the server — before
+      // Claude has been called. Dashboard renders the guest bubble now and
+      // waits for the matching agent_turn (same turn_number) to fill in the
+      // reply.
+      type: 'guest_turn';
       call_sid: string;
       turn_number: number;
-      // Kept for back-compat; equals guest_ts_seconds.
       ts_seconds: number;
-      // Wall-clock-relative timestamps (seconds since call_started):
-      // guest_ts = when the guest stopped speaking; agent_ts = when the
-      // agent's audio is ready to play.
-      guest_ts_seconds: number;
-      agent_ts_seconds: number;
-      guest_speech: string;
-      agent_say: string;
+      speech: string;
+    }
+  | {
+      // Fired after Claude has produced a response, the leak guard has run,
+      // and ElevenLabs has finished synthesising the audio. Carries the same
+      // turn_number as its sibling guest_turn so the view fills in the same
+      // row instead of appending a new one.
+      type: 'agent_turn';
+      call_sid: string;
+      turn_number: number;
+      ts_seconds: number;
+      say: string;
       actions: BackendAction[];
       leaks: string[];
     }

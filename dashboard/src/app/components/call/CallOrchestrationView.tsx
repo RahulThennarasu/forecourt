@@ -131,22 +131,35 @@ function mapAction(a: BackendAction, idx: number, sid: string, turn: number): Ac
   } as Action & { type: string; title: string };
 }
 
-function buildEntry(ev: Extract<SocketEvent, { type: 'turn' }>): LogEntry {
-  const guestSpeech = ev.guest_speech || '';
-  const agentSay = ev.agent_say || '';
+// Build a partial entry from a guest_turn — guest bubble only, no decision
+// or actions yet. The matching agent_turn fills those in later.
+function buildGuestEntry(ev: Extract<SocketEvent, { type: 'guest_turn' }>): LogEntry {
+  return {
+    id: `${ev.call_sid}_${ev.turn_number}`,
+    timestamp: ev.ts_seconds,
+    guestMessage: {
+      text: ev.speech || '',
+      keywords: extractKeywords(ev.speech),
+    },
+    reasoning: [],
+    actions: [],
+    // decision deliberately undefined — applyAgentTurn populates it when the
+    // matching agent_turn event arrives.
+  };
+}
+
+// Merge an agent_turn into the existing partial entry: synthesise the
+// reasoning waterfall, attach the decision block, map actions.
+function applyAgentTurn(
+  entry: LogEntry,
+  ev: Extract<SocketEvent, { type: 'agent_turn' }>,
+): LogEntry {
+  const agentSay = ev.say || '';
   const actions = Array.isArray(ev.actions) ? ev.actions : [];
   const leaks = Array.isArray(ev.leaks) ? ev.leaks : [];
-  // Older clients only saw ts_seconds; new clients see both. Fall back gracefully.
-  const guestTs = typeof ev.guest_ts_seconds === 'number' ? ev.guest_ts_seconds : ev.ts_seconds;
-  const agentTs =
-    typeof ev.agent_ts_seconds === 'number' ? ev.agent_ts_seconds : guestTs;
-
-  const keywords = extractKeywords(guestSpeech);
   const hasOffer = actions.some((a) => a.type === 'anticipatory_offer');
   const wasGuarded = leaks.length > 0;
 
-  // Synthesize the "thinking" track only when something interesting happened
-  // — keeps routine confirmations clean.
   const reasoning: LogEntry['reasoning'] = [];
   if (hasOffer) {
     const offer = actions.find((a) => a.type === 'anticipatory_offer');
@@ -157,7 +170,6 @@ function buildEntry(ev: Extract<SocketEvent, { type: 'turn' }>): LogEntry {
         title: 'memory recall',
         description: p.recall,
         details: [],
-        // extra fields rendered by SubSteps:
         text: p.recall,
       } as LogEntry['reasoning'][number] & { text: string });
     }
@@ -182,22 +194,14 @@ function buildEntry(ev: Extract<SocketEvent, { type: 'turn' }>): LogEntry {
   }
 
   return {
-    id: `${ev.call_sid}_${ev.turn_number}`,
-    timestamp: guestTs,
-    guestMessage: {
-      text: guestSpeech,
-      keywords,
-    },
+    ...entry,
     reasoning,
     decision: {
       type: hasOffer ? 'offer' : 'confirmation',
       text: agentSay,
       importance: wasGuarded || hasOffer ? 'critical' : 'standard',
-      // Extra fields rendered loosely by OrchestrationLog:
-      // - `title` shows in the decision label
-      // - `timestamp` lets the decision row show its own time-of-call
       title: hasOffer ? 'anticipatory offer' : 'response',
-      timestamp: agentTs,
+      timestamp: ev.ts_seconds,
     } as LogEntry['decision'] & { title: string; timestamp: number },
     actions: actions.map((a, i) => mapAction(a, i, ev.call_sid, ev.turn_number)),
   };
@@ -245,17 +249,14 @@ export function CallOrchestrationView() {
       return;
     }
 
-    if (last.type === 'turn') {
-      const entry = buildEntry(last);
+    if (last.type === 'guest_turn') {
+      const entry = buildGuestEntry(last);
       setCallState((prev) => {
-        // Ignore turns from a different call — defensive against late events
-        // arriving after a new call has started.
         if (prev.callSid && prev.callSid !== last.call_sid) return prev;
-        // First event of a call may be a `turn` if call_started was dropped
-        // (rare, but defensive). Anchor startedAtMs in that case.
-        // Keep status 'in_progress' even if a stray turn arrives after
-        // call_ended — don't promote back from ended → in_progress.
         const nextStatus = prev.status === 'ended' ? 'ended' : 'in_progress';
+        // De-dupe: if a guest_turn for this id is already present (e.g. the
+        // backend retried), don't append a second.
+        if (prev.entries.some((e) => e.id === entry.id)) return prev;
         return {
           ...prev,
           status: nextStatus,
@@ -263,6 +264,34 @@ export function CallOrchestrationView() {
           startedAtMs: prev.startedAtMs ?? Date.now(),
           entries: [...prev.entries, entry],
         };
+      });
+      return;
+    }
+
+    if (last.type === 'agent_turn') {
+      setCallState((prev) => {
+        if (prev.callSid && prev.callSid !== last.call_sid) return prev;
+        const targetId = `${last.call_sid}_${last.turn_number}`;
+        let touched = false;
+        const updated = prev.entries.map((entry) => {
+          if (entry.id !== targetId) return entry;
+          touched = true;
+          return applyAgentTurn(entry, last);
+        });
+        // Defensive: if the matching guest_turn was missed (e.g. server
+        // restart, or dashboard tab opened after the call started), synthesise
+        // a placeholder guest row so the agent_turn isn't orphaned.
+        if (!touched) {
+          const placeholder: LogEntry = {
+            id: targetId,
+            timestamp: last.ts_seconds,
+            guestMessage: { text: '(speech not captured)', keywords: [] },
+            reasoning: [],
+            actions: [],
+          };
+          updated.push(applyAgentTurn(placeholder, last));
+        }
+        return { ...prev, entries: updated };
       });
       return;
     }

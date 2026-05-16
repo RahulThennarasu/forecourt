@@ -185,11 +185,24 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
     guest = state["guest"]
     history: list[dict] = state["history"]
     history.append({"role": "user", "content": speech})
+    turn_n = (len(history) + 1) // 2  # 1-indexed exchange number
 
     # If the guest just signalled closing, this turn is the last one — the
     # agent will speak its goodbye and Twilio will hang up immediately after,
     # no trailing 6s silence wait on the Gather.
     is_closing = _is_closing_utterance(speech)
+
+    # Fire the guest_turn event RIGHT NOW so the dashboard renders the guest
+    # bubble while Claude + ElevenLabs are still working. The matching
+    # agent_turn (below) carries the same turn_number so the dashboard fills
+    # the same row in with the agent's reply when it's ready.
+    asyncio.create_task(ws.broadcast({
+        "type": "guest_turn",
+        "call_sid": call_sid,
+        "turn_number": turn_n,
+        "ts_seconds": guest_ts,
+        "speech": speech,
+    }))
 
     try:
         system_prompt = build_system_prompt(guest, LOCAL_CONTEXT)
@@ -198,9 +211,21 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
         logger.exception("claude_call_failed sid=%s", call_sid)
         # Roll back the user message so retry on the next turn isn't double-counted.
         history.pop()
+        # The dashboard already rendered the guest bubble — emit a matching
+        # agent_turn carrying the deflection so the row finalises instead of
+        # hanging forever as guest-only.
+        fail_ts = max(guest_ts, int(time.monotonic() - (state.get("started_at") or time.monotonic())))
+        asyncio.create_task(ws.broadcast({
+            "type": "agent_turn",
+            "call_sid": call_sid,
+            "turn_number": turn_n,
+            "ts_seconds": fail_ts,
+            "say": SAFE_DEFLECTION,
+            "actions": [],
+            "leaks": [],
+        }))
         return _twiml(
-            '<Say voice="Polly.Joanna">Let me have the team look into that '
-            'and follow up by text. Have a good rest of your day.</Say><Hangup/>'
+            f'<Say voice="Polly.Joanna">{html.escape(SAFE_DEFLECTION)}</Say><Hangup/>'
         )
 
     history.append({"role": "assistant", "content": raw})
@@ -247,23 +272,18 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
             "action": action,
         }))
 
-    # One rich `turn` event for the dashboard. Two timestamps: when the
-    # guest stopped talking (guest_ts_seconds, captured at handler entry) and
-    # when the agent's audio is ready (agent_ts_seconds, captured here after
-    # Claude + ElevenLabs). The visible gap reflects the real think+synthesise
-    # delay, which is what the user wanted to see distinguish guest vs agent.
+    # Matching agent_turn — finalises the row in the dashboard. Carries the
+    # same turn_number as the earlier guest_turn so the view fills in the same
+    # entry. Timestamp captured AFTER synthesis so it reflects when the audio
+    # is actually ready to play.
     started_at = state.get("started_at") or time.monotonic()
     agent_ts = max(guest_ts, int(time.monotonic() - started_at))
     asyncio.create_task(ws.broadcast({
-        "type": "turn",
+        "type": "agent_turn",
         "call_sid": call_sid,
-        "turn_number": (len(history) // 2),
-        # Kept for back-compat with older clients; mirrors guest_ts_seconds.
-        "ts_seconds": guest_ts,
-        "guest_ts_seconds": guest_ts,
-        "agent_ts_seconds": agent_ts,
-        "guest_speech": speech,
-        "agent_say": say_text,
+        "turn_number": turn_n,
+        "ts_seconds": agent_ts,
+        "say": say_text,
         "actions": actions,
         "leaks": leaks,
     }))
