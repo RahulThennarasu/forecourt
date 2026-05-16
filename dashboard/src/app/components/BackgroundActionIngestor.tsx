@@ -21,14 +21,23 @@ export function BackgroundActionIngestor() {
 
   useEffect(() => {
     if (!last) return;
-    if (last.type === 'call_started') {
-      guestByCallRef.current.set(last.call_sid, last.guest_name || 'Guest');
-      return;
+    // Any event that carries a guest_name updates the call->name map. This
+    // covers the case where the dashboard mounted AFTER call_started fired —
+    // the very next guest_turn or agent_turn will populate the name so
+    // downstream rows don't fall back to the generic "Guest" label.
+    const carriedName =
+      'guest_name' in last && typeof last.guest_name === 'string'
+        ? last.guest_name
+        : null;
+    if (carriedName && 'call_sid' in last && typeof last.call_sid === 'string') {
+      guestByCallRef.current.set(last.call_sid, carriedName);
     }
+
     if (last.type === 'agent_turn') {
       const actions = Array.isArray(last.actions) ? last.actions : [];
       if (actions.length === 0) return;
-      const guestName = guestByCallRef.current.get(last.call_sid) || 'Guest';
+      const guestName =
+        guestByCallRef.current.get(last.call_sid) || carriedName || 'Guest';
       for (const a of actions) {
         ingestAction(a, {
           callSid: last.call_sid,

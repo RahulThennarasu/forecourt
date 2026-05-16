@@ -29,8 +29,21 @@ PHILIP_TURNS: list[dict] = [
             "we'll do private in-villa check-in so you can head straight up."
         ),
         "actions": [
-            {"type": "room", "payload": {"text": "VIP alert: Philip Meyer on property"}},
-            {"type": "room", "payload": {"text": "Mountain-View Suite pre-keyed · private in-villa check-in"}},
+            {
+                "type": "flag_for_staff",
+                "payload": {
+                    "note": "VIP alert: Mr. Meyer on property",
+                    "priority": "high",
+                    "source_quote": "arriving this afternoon",
+                },
+            },
+            {
+                "type": "room_request",
+                "payload": {
+                    "request": "Mountain-View Suite pre-keyed · private in-villa check-in",
+                    "source_quote": "arriving this afternoon",
+                },
+            },
         ],
     },
     {
@@ -43,10 +56,37 @@ PHILIP_TURNS: list[dict] = [
             "Pre-load the high-sodium packs too?"
         ),
         "actions": [
-            {"type": "facility", "payload": {"text": "Pacing guide Marco · Kings Mountain loop · 5:30 AM"}},
-            {"type": "facility", "payload": {"text": "House mechanic tuning S-Works Tarmac tonight"}},
-            {"type": "amenity", "payload": {"text": "Bici Coffee · 5:15 AM staging espresso"}},
-            {"type": "amenity", "payload": {"text": "High-sodium electrolyte packs pre-positioned"}},
+            {
+                "type": "flag_for_staff",
+                "payload": {
+                    "note": "Pacing guide Marco · Kings Mountain loop",
+                    "priority": "normal",
+                    "source_quote": "long ride tomorrow",
+                    "when": "5:30 AM",
+                },
+            },
+            {
+                "type": "preference_note",
+                "payload": {
+                    "note": "House mechanic tuning S-Works Tarmac tonight",
+                    "source_quote": "long ride tomorrow",
+                },
+            },
+            {
+                "type": "dining_request",
+                "payload": {
+                    "request": "Bici Coffee · staging espresso",
+                    "when": "5:15 AM",
+                    "source_quote": "long ride tomorrow",
+                },
+            },
+            {
+                "type": "preference_note",
+                "payload": {
+                    "note": "High-sodium electrolyte packs pre-positioned",
+                    "source_quote": "long ride tomorrow",
+                },
+            },
         ],
     },
     {
@@ -58,9 +98,21 @@ PHILIP_TURNS: list[dict] = [
             "alcove for you anytime after 7:30. Enough breathing room?"
         ),
         "actions": [
-            {"type": "dining", "payload": {"text": "Madera reservation · open VIP hold after 7:30"}},
-            {"type": "dining", "payload": {"text": "Chef's Counter alcove blocked for low-stimulus dining"}},
-            {"type": "dining", "payload": {"text": "Chef Laurent briefed on late-night flexibility"}},
+            {
+                "type": "dining_request",
+                "payload": {
+                    "request": "Madera · Chef's Counter alcove · open VIP hold",
+                    "when": "after 7:30 PM",
+                    "source_quote": "make dinner flexible",
+                },
+            },
+            {
+                "type": "preference_note",
+                "payload": {
+                    "note": "Chef Laurent briefed on late-night flexibility",
+                    "source_quote": "make dinner flexible",
+                },
+            },
         ],
     },
     {
@@ -73,9 +125,22 @@ PHILIP_TURNS: list[dict] = [
             "briefing. Confirm the setup?"
         ),
         "actions": [
-            {"type": "facility", "payload": {"text": "Director of Community Affairs engaged"}},
-            {"type": "amenity", "payload": {"text": "3 on-property VC/Tech donors invited to connect"}},
-            {"type": "facility", "payload": {"text": "Executive Boardroom held · 3:00 PM tomorrow"}},
+            {
+                "type": "flag_for_staff",
+                "payload": {
+                    "note": "3 on-property VC/Tech donors invited to connect; Director of Community Affairs engaged",
+                    "priority": "normal",
+                    "source_quote": "charity briefing",
+                },
+            },
+            {
+                "type": "room_request",
+                "payload": {
+                    "request": "Executive Boardroom held for donor briefing",
+                    "when": "3:00 PM tomorrow",
+                    "source_quote": "charity briefing",
+                },
+            },
         ],
     },
     {
@@ -87,8 +152,23 @@ PHILIP_TURNS: list[dict] = [
             "Normatec setup to your suite by 10 AM. Charge it to the corporate account?"
         ),
         "actions": [
-            {"type": "amenity", "payload": {"text": "External vendor · Specialized Sports Therapy Labs (Palo Alto)"}},
-            {"type": "room", "payload": {"text": "Normatec compression system · in-suite drop · 10:00 AM"}},
+            {
+                "type": "flag_for_staff",
+                "payload": {
+                    "note": "External vendor: Specialized Sports Therapy Labs (Palo Alto) · Normatec drop",
+                    "priority": "normal",
+                    "source_quote": "recovery before board meeting",
+                    "when": "10:00 AM",
+                },
+            },
+            {
+                "type": "room_request",
+                "payload": {
+                    "request": "Normatec compression system · in-suite drop",
+                    "when": "10:00 AM",
+                    "source_quote": "recovery before board meeting",
+                },
+            },
         ],
     },
 ]

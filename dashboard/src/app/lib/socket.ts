@@ -41,9 +41,11 @@ export type SocketEvent =
       // Fired the moment Twilio's transcript reaches the server — before
       // Claude has been called. Dashboard renders the guest bubble now and
       // waits for the matching agent_turn (same turn_number) to fill in the
-      // reply.
+      // reply. guest_name is included so subscribers that mounted after
+      // call_started still know who's on the line.
       type: 'guest_turn';
       call_sid: string;
+      guest_name?: string;
       turn_number: number;
       ts_seconds: number;
       speech: string;
@@ -52,9 +54,11 @@ export type SocketEvent =
       // Fired after Claude has produced a response, the leak guard has run,
       // and ElevenLabs has finished synthesising the audio. Carries the same
       // turn_number as its sibling guest_turn so the view fills in the same
-      // row instead of appending a new one.
+      // row instead of appending a new one. guest_name lets the bookings
+      // ingestor label live actions correctly even on a late mount.
       type: 'agent_turn';
       call_sid: string;
+      guest_name?: string;
       turn_number: number;
       ts_seconds: number;
       say: string;

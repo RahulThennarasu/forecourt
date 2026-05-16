@@ -204,6 +204,12 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
         )
 
     guest = state["guest"]
+    # Resolve display name once. Included on every WS event so the dashboard
+    # (BackgroundActionIngestor + history view) can label rows correctly even
+    # if it mounted after call_started fired and missed that broadcast.
+    guest_name = (
+        guest["name"] if isinstance(guest, dict) and guest.get("name") else "Guest"
+    )
     history: list[dict] = state["history"]
     history.append({"role": "user", "content": speech})
     turn_n = (len(history) + 1) // 2  # 1-indexed exchange number
@@ -220,6 +226,7 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
     asyncio.create_task(ws.broadcast({
         "type": "guest_turn",
         "call_sid": call_sid,
+        "guest_name": guest_name,
         "turn_number": turn_n,
         "ts_seconds": guest_ts,
         "speech": speech,
@@ -258,6 +265,7 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
         asyncio.create_task(_broadcast_after(AGENT_BROADCAST_DELAY_S, {
             "type": "agent_turn",
             "call_sid": call_sid,
+            "guest_name": guest_name,
             "turn_number": turn_n,
             "ts_seconds": fail_ts,
             "say": SAFE_DEFLECTION,
@@ -339,6 +347,7 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
     asyncio.create_task(_broadcast_after(AGENT_BROADCAST_DELAY_S, {
         "type": "agent_turn",
         "call_sid": call_sid,
+        "guest_name": guest_name,
         "turn_number": turn_n,
         "ts_seconds": agent_ts,
         "say": say_text,
