@@ -26,8 +26,8 @@ export function CallHeader({ guestName, phoneNumber, callStartTime }: Props) {
 
   return (
     <div
-      className="flex-shrink-0 flex items-center justify-between px-8 border-b"
-      style={{ height: '72px', borderColor: '#F0EBE5', background: '#FDFCFA' }}
+      className="flex-shrink-0 flex items-center justify-between px-8"
+      style={{ height: '72px', background: '#FFFFFF' }}
     >
       {/* Left: Status */}
       <div className="flex items-center gap-2" style={{ minWidth: 140 }}>
@@ -35,12 +35,12 @@ export function CallHeader({ guestName, phoneNumber, callStartTime }: Props) {
           animate={{ opacity: [0.4, 1, 0.4] }}
           transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
           className="w-1.5 h-1.5 rounded-full"
-          style={{ background: '#4A8C5C' }}
+          style={{ background: '#9BCFEF' }}
         />
         <p
           className="text-xs font-medium tracking-wide uppercase"
           style={{
-            color: '#A8A09F',
+            color: '#6E7E8C',
             fontFamily: 'PP Neue Montreal, sans-serif',
             fontSize: '0.5rem',
             letterSpacing: '0.12em',
@@ -51,7 +51,7 @@ export function CallHeader({ guestName, phoneNumber, callStartTime }: Props) {
         <p
           className="text-xs"
           style={{
-            color: '#C8C0B5',
+            color: '#8EA1B1',
             fontFamily: 'PP Neue Montreal, sans-serif',
             fontSize: '0.75rem',
           }}
@@ -73,7 +73,7 @@ export function CallHeader({ guestName, phoneNumber, callStartTime }: Props) {
               fontFamily: 'Cormorant Garamond, Georgia, serif',
               fontSize: '1.375rem',
               fontWeight: 300,
-              color: '#3A3430',
+              color: '#1E2A35',
               lineHeight: 1,
               letterSpacing: '0.02em',
             }}
@@ -85,11 +85,11 @@ export function CallHeader({ guestName, phoneNumber, callStartTime }: Props) {
 
       {/* Right: Phone */}
       <div className="flex items-center gap-2 justify-end" style={{ minWidth: 140 }}>
-        <Phone className="w-3 h-3" style={{ color: '#D0CAC2', strokeWidth: 1.5 }} />
+        <Phone className="w-3 h-3" style={{ color: '#A2B3C1', strokeWidth: 1.5 }} />
         <p
           className="text-xs"
           style={{
-            color: '#C8C0B5',
+            color: '#8EA1B1',
             fontFamily: 'PP Neue Montreal, sans-serif',
             fontSize: '0.75rem',
             letterSpacing: '0.01em',

@@ -1,17 +1,13 @@
 import { motion } from 'motion/react';
-import { Keyword, KeywordType } from '@/data/mockCallData';
+import { Keyword } from '@/data/mockCallData';
 
-const keywordColorMap: Record<KeywordType, string> = {
-  occasion: '#A07850',
-  logistical: '#1B3A2D',
-  constraint: '#4A8C5C',
-  preference: '#5A5EA0',
-};
+const KEYWORD_HIGHLIGHT = 'rgba(10, 54, 34, 0.22)'; // forest green (light highlight)
 
 interface Props {
   text: string;
   keywords: Keyword[];
   timestamp: number;
+  showHeader?: boolean;
 }
 
 function formatTime(seconds: number): string {
@@ -46,7 +42,7 @@ function renderTextWithHighlights(text: string, keywords: Keyword[]) {
   return parts;
 }
 
-export function GuestMessage({ text, keywords, timestamp }: Props) {
+export function GuestMessage({ text, keywords, timestamp, showHeader = true }: Props) {
   const parts = renderTextWithHighlights(text, keywords);
 
   return (
@@ -56,36 +52,38 @@ export function GuestMessage({ text, keywords, timestamp }: Props) {
       transition={{ duration: 0.4 }}
       className="space-y-2"
     >
-      <div className="flex items-center justify-between">
-        <p
-          className="text-xs font-medium tracking-wide uppercase"
-          style={{
-            color: '#A8A09F',
-            fontFamily: 'PP Neue Montreal, sans-serif',
-            fontSize: '0.5625rem',
-            letterSpacing: '0.12em',
-          }}
-        >
-          Guest
-        </p>
-        <p
-          className="text-xs"
-          style={{
-            color: '#D0CAC2',
-            fontFamily: 'PP Neue Montreal, sans-serif',
-            fontSize: '0.75rem',
-          }}
-        >
-          {formatTime(timestamp)}
-        </p>
-      </div>
+      {showHeader ? (
+        <div className="flex items-center justify-between">
+          <p
+            className="text-xs font-medium tracking-wide uppercase"
+            style={{
+              color: '#000000',
+              fontFamily: 'PP Neue Montreal, sans-serif',
+              fontSize: '0.5625rem',
+              letterSpacing: '0.12em',
+            }}
+          >
+            Guest
+          </p>
+          <p
+            className="text-xs"
+            style={{
+              color: '#000000',
+              fontFamily: 'PP Neue Montreal, sans-serif',
+              fontSize: '0.75rem',
+            }}
+          >
+            {formatTime(timestamp)}
+          </p>
+        </div>
+      ) : null}
 
       <p
         className="leading-relaxed"
         style={{
-          color: '#3A3430',
+          color: '#000000',
           fontFamily: 'PP Neue Montreal, sans-serif',
-          fontSize: '0.9375rem',
+          fontSize: '1.0625rem',
           lineHeight: '1.65',
         }}
       >
@@ -93,13 +91,15 @@ export function GuestMessage({ text, keywords, timestamp }: Props) {
           part.keyword ? (
             <span
               key={i}
-              className="font-medium underline decoration-2"
+              className="font-semibold"
               style={{
-                color: keywordColorMap[part.keyword.type],
-                textDecorationColor: keywordColorMap[part.keyword.type],
-                cursor: 'help',
+                color: '#000000',
+                background: KEYWORD_HIGHLIGHT,
+                borderRadius: 6,
+                padding: '1px 6px',
+                boxDecorationBreak: 'clone',
+                WebkitBoxDecorationBreak: 'clone',
               }}
-              title={`${part.keyword.type.charAt(0).toUpperCase()}${part.keyword.type.slice(1)}`}
             >
               {part.text}
             </span>
