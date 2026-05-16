@@ -88,6 +88,15 @@ async def synthesize(text: str, out_path: Path) -> Path:
 
 OPENING_HOOK_FILENAME = "opening_meyer.mp3"
 
+# Canonical opening text. Exposed as a module constant so voice.py can stamp
+# the same sentence into the transcript (as a turn-0 agent_turn) that the
+# pre-rendered ElevenLabs MP3 actually says. If you change one, change both —
+# or delete audio/opening_meyer.mp3 so the next startup re-renders from this.
+OPENING_HOOK_TEXT = (
+    "Good evening, Mr. Meyer. This is the Rosewood Sand Hill arrival "
+    "concierge. How can I help you prepare for your stay?"
+)
+
 
 async def ensure_opening_hook(audio_dir: Path) -> Path | None:
     """Generate audio/opening_meyer.mp3 if missing. Best-effort.
@@ -105,12 +114,8 @@ async def ensure_opening_hook(audio_dir: Path) -> Path | None:
         return hook
     if not os.environ.get("ELEVENLABS_API_KEY"):
         return None
-    text = (
-        "Good evening, Mr. Meyer. This is the Rosewood Sand Hill arrival "
-        "concierge. How can I help you prepare for your stay?"
-    )
     try:
-        await _async_synthesize(text, hook)
+        await _async_synthesize(OPENING_HOOK_TEXT, hook)
         return hook
     except (httpx.HTTPError, RuntimeError, OSError):
         logger.exception("Failed to generate opening hook")

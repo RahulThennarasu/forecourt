@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useThresholdSocket } from '@/app/lib/socket';
-import { ingestAction } from '@/app/lib/bookings';
+import { ingestAction, ingestGuest } from '@/app/lib/bookings';
 
 /**
  * App-level WebSocket consumer that pipes every agent_turn's actions into the
@@ -31,6 +31,15 @@ export function BackgroundActionIngestor() {
         : null;
     if (carriedName && 'call_sid' in last && typeof last.call_sid === 'string') {
       guestByCallRef.current.set(last.call_sid, carriedName);
+    }
+
+    // Roster: anyone who has shown up on a live call this session lands in
+    // the Guests page. call_started carries the phone suffix; later events
+    // don't, but they at least keep the name pinned via ingestGuest's dedup.
+    if (last.type === 'call_started') {
+      ingestGuest(last.call_sid, last.guest_name || 'Guest', last.phone_suffix || '');
+    } else if (carriedName && 'call_sid' in last && typeof last.call_sid === 'string') {
+      ingestGuest(last.call_sid, carriedName, '');
     }
 
     if (last.type === 'agent_turn') {

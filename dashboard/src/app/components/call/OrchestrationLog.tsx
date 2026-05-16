@@ -391,14 +391,19 @@ export function OrchestrationLog({ entries }: Props) {
           <div className="max-w-3xl mx-auto space-y-6">
             {entries.map((entry) => (
               <div key={entry.id} className="space-y-3">
-                <Step label="guest" meta={formatTime(entry.timestamp)} variant="main" align="left">
-                  <GuestMessage
-                    text={entry.guestMessage.text}
-                    keywords={entry.guestMessage.keywords}
-                    timestamp={entry.timestamp}
-                    showHeader={false}
-                  />
-                </Step>
+                {/* Skip the guest Step for one-sided turns — e.g. the
+                    opening greeting (turn 0) which has only an agent
+                    decision and no preceding guest utterance. */}
+                {entry.guestMessage.text ? (
+                  <Step label="guest" meta={formatTime(entry.timestamp)} variant="main" align="left">
+                    <GuestMessage
+                      text={entry.guestMessage.text}
+                      keywords={entry.guestMessage.keywords}
+                      timestamp={entry.timestamp}
+                      showHeader={false}
+                    />
+                  </Step>
+                ) : null}
 
                 <SubSteps
                   entryId={entry.id}

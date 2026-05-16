@@ -55,8 +55,16 @@ export interface LiveRequest {
   endHour?: number;
 }
 
+export interface LiveGuest {
+  callSid: string;
+  name: string;
+  phoneSuffix: string;
+  firstSeenMs: number;
+}
+
 const bookings: LiveBooking[] = [];
 const requests: LiveRequest[] = [];
+const liveGuests: LiveGuest[] = [];
 // Dedupe across the call_sid + payload identity. Demo callers retry the same
 // turn occasionally; we don't want two dinners at 7 PM on the same call.
 const seen = new Set<string>();
@@ -73,9 +81,33 @@ function subscribe(l: () => void): () => void {
   };
 }
 
-function todayKey(): string {
-  const d = new Date();
+function dateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function todayKey(): string {
+  return dateKey(new Date());
+}
+
+// Adjust today by `offsetDays` and return the YYYY-MM-DD key. Used when the
+// agent's payload says "tomorrow" so the booking lands on the correct day in
+// the calendar instead of always today.
+function dayKeyOffset(offsetDays: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return dateKey(d);
+}
+
+// Look for explicit relative-date words in any of the action's text fields.
+// "tomorrow" / "tomorrow morning" -> +1; "day after tomorrow" -> +2;
+// "today" / "tonight" / "this evening" / "later" -> 0. Returns 0 when no
+// hint is present so dated demos still default to today.
+function parseDateOffset(text: string): number {
+  const t = (text || '').toLowerCase();
+  if (/\bday\s+after\s+tomorrow\b/.test(t)) return 2;
+  if (/\btomorrow\b/.test(t)) return 1;
+  if (/\bday\s+after\b/.test(t)) return 1;
+  return 0;
 }
 
 // Parse a single "7", "7:30", "7 pm", "7:30 p.m." into a fractional 24h hour.
@@ -281,7 +313,9 @@ export function ingestAction(action: BackendAction, ctx: IngestContext): void {
   if (seen.has(fp)) return;
   seen.add(fp);
 
-  const time = parseTimeFromText(payloadText(action));
+  const fullText = payloadText(action);
+  const time = parseTimeFromText(fullText);
+  const dayOffset = parseDateOffset(fullText);
   const idBase = `live_${ctx.callSid}_${ctx.turnTsSeconds ?? 0}_${action.type}_${seen.size}`;
 
   // ---- Calendar routing ----
@@ -300,7 +334,9 @@ export function ingestAction(action: BackendAction, ctx: IngestContext): void {
       actionType: action.type,
       title: titleFor(action, ctx.guestName),
       detail: summaryFor(action),
-      date: todayKey(),
+      // Honour "tomorrow" / "day after tomorrow" in the payload; default to
+      // today when no relative-date hint is present.
+      date: dayKeyOffset(dayOffset),
       startHour: time.startHour,
       endHour: time.endHour,
       category: categoryFor(action.type),
@@ -318,7 +354,7 @@ export function ingestAction(action: BackendAction, ctx: IngestContext): void {
       summary: summaryFor(action),
       details: detailsFor(action),
       requestedAt: ctx.turnTsSeconds ?? 0,
-      date: time ? todayKey() : undefined,
+      date: time ? dayKeyOffset(dayOffset) : undefined,
       startHour: time?.startHour,
       endHour: time?.endHour,
     });
@@ -327,21 +363,46 @@ export function ingestAction(action: BackendAction, ctx: IngestContext): void {
   emit();
 }
 
-// React hook — re-renders when either array changes. Returns the current
-// snapshots; consumers must not mutate them.
+// Record a guest who's actively on a call so the Guests page can show them
+// alongside the static demo roster. Dedupes by name (same caller can hit
+// /voice twice on Twilio's Primary+Fallback fire pattern).
+export function ingestGuest(callSid: string, name: string, phoneSuffix: string): void {
+  if (!name) return;
+  if (liveGuests.some((g) => g.name === name)) return;
+  liveGuests.push({
+    callSid,
+    name,
+    phoneSuffix: phoneSuffix || '',
+    firstSeenMs: Date.now(),
+  });
+  emit();
+}
+
+// React hook — re-renders when any of the three arrays changes. Returns
+// FRESH array references on each render so consumer `useMemo([liveBookings])`
+// hooks actually re-run. (Earlier this returned the module-level arrays
+// directly; same reference + push-mutation meant React's Object.is dep check
+// considered them unchanged and Calendar's memo never picked up newly
+// ingested rows.)
 export function useLiveBookings(): {
   bookings: readonly LiveBooking[];
   requests: readonly LiveRequest[];
+  liveGuests: readonly LiveGuest[];
 } {
   const [, force] = useState(0);
   useEffect(() => subscribe(() => force((n) => n + 1)), []);
-  return { bookings, requests };
+  return {
+    bookings: bookings.slice(),
+    requests: requests.slice(),
+    liveGuests: liveGuests.slice(),
+  };
 }
 
 // Test / dev helper. Not used in production paths.
 export function _resetLiveBookings(): void {
   bookings.length = 0;
   requests.length = 0;
+  liveGuests.length = 0;
   seen.clear();
   emit();
 }

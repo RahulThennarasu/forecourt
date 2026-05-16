@@ -120,15 +120,15 @@ PHILIP_TURNS: list[dict] = [
         "user_hint": "charity / donor",
         "triggers": ["charity", "donor", "donation", "nonprofit", "philanthrop", "fundrais"],
         "say": (
-            "Happy to help. Three on-property VC guests are already looped in, "
-            "and the Executive Boardroom is held at 3 PM tomorrow for a donor "
-            "briefing. Confirm the setup?"
+            "Happy to help. We will contact three on-property VC guests, and "
+            "we can book the Executive Boardroom at 3 PM tomorrow for a donor "
+            "briefing. Shall I confirm the setup?"
         ),
         "actions": [
             {
                 "type": "flag_for_staff",
                 "payload": {
-                    "note": "3 on-property VC/Tech donors invited to connect; Director of Community Affairs engaged",
+                    "note": "Contact 3 on-property VC/Tech donors; involve Director of Community Affairs",
                     "priority": "normal",
                     "source_quote": "charity briefing",
                 },
@@ -136,7 +136,7 @@ PHILIP_TURNS: list[dict] = [
             {
                 "type": "room_request",
                 "payload": {
-                    "request": "Executive Boardroom held for donor briefing",
+                    "request": "Book Executive Boardroom for donor briefing",
                     "when": "3:00 PM tomorrow",
                     "source_quote": "charity briefing",
                 },

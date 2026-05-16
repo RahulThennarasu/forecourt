@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { GuestDetail, GuestProfile } from "./GuestDetail";
+import { LiveGuest, useLiveBookings } from "@/app/lib/bookings";
 
 const GUESTS: GuestProfile[] = [
   {
@@ -166,8 +167,53 @@ function GuestRow({ guest, index, onClick }: { guest: GuestProfile; index: numbe
   );
 }
 
+// Convert a guest captured live via the call WebSocket into the same
+// GuestProfile shape the rest of GuestsView already renders. Most fields are
+// intentionally sparse — we only know the name and the last four digits of
+// their number. For the hand-built Mr. Meyer demo profile we hydrate a richer
+// view since CLAUDE.md keeps that persona's details server-side; on the
+// frontend we mirror the bits the user cares about (suite, status).
+function liveGuestToProfile(g: LiveGuest): GuestProfile {
+  const isMeyer = /meyer/i.test(g.name);
+  return {
+    id: `live-${g.callSid}`,
+    name: g.name,
+    room: isMeyer ? "Mountain-View Suite (Presidents Wing)" : "—",
+    checkIn: "Today",
+    checkOut: "Today",
+    nights: 1,
+    type: isMeyer ? "vip" : "stay",
+    status: "in-house",
+    note: g.phoneSuffix ? `Recent call · •••-${g.phoneSuffix}` : "Recent call",
+    preferences: isMeyer
+      ? {
+          dining: "Low-stimulus dining after board calls · Chef's Counter alcove at Madera",
+          room: "Mountain-View Suite · private in-villa check-in",
+          schedule: "5:30 AM ride · early starts",
+        }
+      : {},
+    background: isMeyer
+      ? {
+          interests: "Elite endurance cycling · philanthropy",
+          occasion: "Board calls + private donor briefing",
+        }
+      : {},
+  };
+}
+
 export function GuestsView() {
   const [selected, setSelected] = useState<GuestProfile | null>(null);
+  const { liveGuests } = useLiveBookings();
+
+  const allGuests = useMemo<GuestProfile[]>(() => {
+    // Live guests go FIRST in their status group so a fresh call surfaces
+    // at the top of "In House".
+    const live = liveGuests.map(liveGuestToProfile);
+    // Drop any hardcoded entry with the same name so we don't double-list.
+    const liveNames = new Set(live.map((g) => g.name.toLowerCase()));
+    const filteredStatic = GUESTS.filter((g) => !liveNames.has(g.name.toLowerCase()));
+    return [...live, ...filteredStatic];
+  }, [liveGuests]);
 
   const groups: { status: GuestProfile["status"]; label: string }[] = [
     { status: "in-house",  label: "In House"  },
@@ -188,7 +234,7 @@ export function GuestsView() {
 
         <div className="space-y-10">
           {groups.map(({ status, label }) => {
-            const list = GUESTS.filter(g => g.status === status);
+            const list = allGuests.filter(g => g.status === status);
             if (!list.length) return null;
             return (
               <div key={status}>

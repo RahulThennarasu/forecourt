@@ -28,7 +28,7 @@ from conversation import build_system_prompt, call_claude
 from data import LOCAL_CONTEXT, lookup_guest
 from demo_scripts import get_demo_turn
 from guard import redact_leaks
-from synthesis import synthesize
+from synthesis import OPENING_HOOK_TEXT, synthesize
 
 # Used when the leak guard fires: deflect rather than risk a surveillance-feel
 # leak reaching the audio. Mirrors the prompt's "let the team confirm" escape.
@@ -144,6 +144,18 @@ async def voice(request: Request, background: BackgroundTasks) -> PlainTextRespo
             "guest_name": guest["name"],
             "phone_suffix": phone_suffix,
         }))
+        # The opening hook MP3 is about to play. Broadcast a matching transcript
+        # event so the dashboard shows the agent's greeting as the first entry
+        # in the call view — without this the timeline starts blank until the
+        # guest speaks. Also persist as turn 0 so the history replay shows it.
+        asyncio.create_task(ws.broadcast({
+            "type": "call_opening",
+            "call_sid": call_sid,
+            "guest_name": guest["name"],
+            "ts_seconds": 0,
+            "say": OPENING_HOOK_TEXT,
+        }))
+        background.add_task(db.log_turn, call_sid, 0, "agent", OPENING_HOOK_TEXT, 0)
         return _twiml(f'<Play>{OPENING_HOOK_URL}</Play>{GATHER}')
 
     # Walk-in: no profile, no demo fallback. Track the call so /respond can

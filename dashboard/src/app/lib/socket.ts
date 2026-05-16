@@ -38,6 +38,16 @@ export type SocketEvent =
       phone_suffix: string;
     }
   | {
+      // Fired right after call_started: carries the text of the pre-rendered
+      // opening hook (ElevenLabs MP3) so the dashboard can show the agent's
+      // greeting as the first entry. One-sided — no preceding guest_turn.
+      type: 'call_opening';
+      call_sid: string;
+      guest_name?: string;
+      ts_seconds: number;
+      say: string;
+    }
+  | {
       // Fired the moment Twilio's transcript reaches the server — before
       // Claude has been called. Dashboard renders the guest bubble now and
       // waits for the matching agent_turn (same turn_number) to fill in the

@@ -217,79 +217,27 @@ export const mockCallDataPhilip: CallState = {
       ],
       decision: {
         type: 'offer',
-        text: "We would love to champion this. I’ve already contacted our Director of Community Affairs. We have flagged three prominent Venture Capital managing partners—all cycling enthusiasts currently staying with us—and invited them to connect. I’ve blocked out the Executive Boardroom for 3:00 PM tomorrow if you'd like to host an intimate donor briefing, and we can arrange a charity reception on the Vista Lawn for your next visit. Shall I confirm the boardroom setup?",
+        text: "We would love to champion this. We will contact our Director of Community Affairs and reach out to three prominent Venture Capital managing partners—all cycling enthusiasts currently staying with us. We can book the Executive Boardroom for 3:00 PM tomorrow if you'd like to host an intimate donor briefing, and we can arrange a charity reception on the Vista Lawn for your next visit. Shall I confirm the boardroom setup?",
         importance: 'critical',
       },
       actions: [
         {
           id: 'a10',
-          text: 'Director of Community Affairs engaged as core nonprofit liaison',
+          text: 'Director of Community Affairs to be engaged as core nonprofit liaison',
           category: 'facility',
-          status: 'executed',
+          status: 'pending',
         },
         {
           id: 'a11',
-          text: 'Outreach initiated to 3 on-property VC/Tech donors for charity mentorship briefing',
+          text: 'Outreach to be initiated to 3 on-property VC/Tech donors for charity mentorship briefing',
           category: 'amenity',
-          status: 'executed',
+          status: 'pending',
         },
         {
           id: 'a12',
-          text: 'Executive Boardroom reserved for 3:00 PM pitch & donor presentation',
+          text: 'Executive Boardroom can be booked for 3:00 PM pitch & donor presentation',
           category: 'facility',
-          status: 'executed',
-        },
-      ],
-    },
-    {
-      id: 'entry-5',
-      timestamp: 28,
-      guestMessage: {
-        text: "The ride sounds perfect. But my legs are going to be absolutely destroyed after climbing Kings Mountain, and I know the spa fills up fast on weekends.",
-        keywords: [
-          { word: 'legs destroyed', type: 'constraint', highlighted: true },
-          { word: 'spa fills up', type: 'constraint', highlighted: true },
-        ],
-      },
-      reasoning: [
-        {
-          type: 'occasion_detected',
-          title: 'INTERNAL CAPACITY CONSTRAINT',
-          description: 'On-property spa assets fully committed during guest recovery window',
-          details: [
-            'Asaya Spa treatment rooms 100% booked by local lifestyle members',
-            'Guest physical state: Extreme lower-body muscle fatigue post-60-mile alpine climb',
-            'Requirement: Immediate athletic recovery protocol required prior to 2:00 PM corporate call'
-          ],
-        },
-        {
-          type: 'outside_service_bridge',
-          title: 'EXTERNAL OUTSIDE SERVICE ACTIVATED',
-          description: 'Sourcing medical-grade athletic recovery assets from premium third-party provider',
-          details: [
-            'Vendor Identified: Specialized Sports Therapy Labs (Palo Alto)',
-            'Asset Allocation: Delivery of mobile Normatec dynamic air-compression systems',
-            'Logistics: Room drop scheduled for 10:00 AM; zero operational friction for property staff'
-          ],
-        },
-      ],
-      decision: {
-        type: 'offer',
-        text: "I anticipated that, Mr. Meyer. Our internal spa treatment rooms are fully committed tomorrow morning, so I have reached out to our elite outside sports-medicine partner in Palo Alto. I have contracted them to deliver a professional Normatec dynamic air-compression setup directly to your suite by 10:00 AM. They will configure it in your private living space so you can run an intense physical recovery cycle at your own convenience before your board meeting. Shall I finalize the external vendor invoice to your corporate account?",
-        importance: 'critical',
-      },
-      actions: [
-        {
-          id: 'a13',
-          text: 'External Contract Executed: Specialized Sports Therapy Labs (Palo Alto)',
-          category: 'amenity',
-          status: 'executed',
-        },
-        {
-          id: 'a14',
-          text: 'Suite Drop Scheduled: In-room setup of Normatec Compression System · 10:00 AM',
-          category: 'room',
-          status: 'executed',
+          status: 'pending',
         },
       ],
     },

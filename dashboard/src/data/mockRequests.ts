@@ -56,15 +56,6 @@ const MENLO_VENDORS: Record<string, Vendor[]> = {
 
 export const MOCK_REQUESTS: RequestRecord[] = [
   {
-    id: 'req-philip-recovery',
-    service: 'sports therapy',
-    summary: 'In-suite Normatec compression recovery setup',
-    details: ['Delivery by 10:00 AM', 'Configure in living space', 'Invoice to corporate account if approved'],
-    vendors: MENLO_VENDORS['sports therapy'],
-    requestedBy: 'Philip Meyer',
-    requestedAt: 28,
-  },
-  {
     id: 'req-ava-security',
     service: 'security',
     summary: 'Discrete security detail for a late-night arrival',

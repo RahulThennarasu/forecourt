@@ -272,11 +272,15 @@ function entriesFromDetail(detail: CallDetail): LogEntry[] {
   const entries: LogEntry[] = nums.map((n) => {
     const g = groups.get(n)!;
     const ts = g.guestTs ?? g.agentTs ?? 0;
+    // Turn 0 = the pre-rendered opening (agent-only). Anything else with no
+    // guest text gets the legacy "speech not captured" fallback so we can
+    // tell apart an opening from a dropped guest_turn.
+    const guestText = g.guestText ?? (n === 0 ? '' : '(speech not captured)');
     const entry: LogEntry = {
       id: `${detail.call_sid}_${n}`,
       timestamp: ts,
       guestMessage: {
-        text: g.guestText || '(speech not captured)',
+        text: guestText,
         keywords: extractKeywords(g.guestText),
       },
       reasoning: [],
@@ -534,6 +538,41 @@ export function CallOrchestrationView() {
       setCallState((prev) => {
         if (prev.callSid !== last.call_sid) return prev;
         return { ...prev, status: 'ended', endedAtMs: Date.now() };
+      });
+      return;
+    }
+
+    if (last.type === 'call_opening') {
+      // Agent greeting from the pre-rendered ElevenLabs MP3. One-sided —
+      // there's no preceding guest_turn — so we render only the agent
+      // bubble. OrchestrationLog skips the guest Step when guestMessage.text
+      // is empty.
+      setCallState((prev) => {
+        if (prev.callSid && prev.callSid !== last.call_sid) return prev;
+        const openingId = `${last.call_sid}_opening`;
+        if (prev.entries.some((e) => e.id === openingId)) return prev;
+        const openingEntry: LogEntry = {
+          id: openingId,
+          timestamp: last.ts_seconds,
+          guestMessage: { text: '', keywords: [] },
+          reasoning: [],
+          actions: [],
+          decision: {
+            type: 'confirmation',
+            text: last.say,
+            importance: 'standard',
+            title: 'opening',
+            timestamp: last.ts_seconds,
+          } as LogEntry['decision'] & { title: string; timestamp: number },
+        };
+        return {
+          ...prev,
+          status: prev.status === 'ended' ? 'ended' : 'in_progress',
+          callSid: prev.callSid || last.call_sid,
+          startedAtMs: prev.startedAtMs ?? Date.now(),
+          // Opening is always first in the timeline.
+          entries: [openingEntry, ...prev.entries],
+        };
       });
       return;
     }
