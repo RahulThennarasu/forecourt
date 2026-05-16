@@ -179,12 +179,18 @@ def get_demo_turn(
     speech: str,
     used_indices: set[int] | None = None,
 ) -> tuple[int, dict] | None:
-    """Return (index, turn) for the first script row whose triggers appear in
-    the guest's speech and that hasn't fired yet on this call. None if no row
-    matches — caller should fall back to the live LLM path.
+    """Return (index, turn) for the BEST-matching unused script row.
 
-    used_indices is mutated by the caller after a successful fire so repeat
-    keyword hits don't replay the same scripted line.
+    Picks the row with the most trigger hits in the guest's speech, not the
+    first one to match. Without this, an utterance like "I'm mentoring the
+    Bay Area Youth cycling initiative — can your team coordinate a charity
+    benefit event?" lights up "cycling" first and fires the morning-ride
+    script, even though "charity" + "donor" + "benefit" are unmistakably the
+    charity turn.
+
+    Ties (e.g. both scripts share exactly one trigger hit) go to the lower
+    index, matching the natural narrative order of the demo. Returns None
+    if nothing scored above zero — caller falls back to the live LLM path.
     """
     if script != "philip":
         return None
@@ -192,10 +198,18 @@ def get_demo_turn(
     if not speech_l:
         return None
     used = used_indices or set()
+    best: tuple[int, int, dict] | None = None  # (score, idx, turn)
     for idx, turn in enumerate(PHILIP_TURNS):
         if idx in used:
             continue
         triggers = turn.get("triggers") or []
-        if any(t.lower() in speech_l for t in triggers):
-            return idx, turn
-    return None
+        score = sum(1 for t in triggers if t.lower() in speech_l)
+        if score == 0:
+            continue
+        # Strict > so earlier-indexed rows win on ties.
+        if best is None or score > best[0]:
+            best = (score, idx, turn)
+    if best is None:
+        return None
+    _, idx, turn = best
+    return idx, turn

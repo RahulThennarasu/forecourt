@@ -945,7 +945,17 @@ export function Calendar() {
 
   // ── Day view ────────────────────────────────────────────────────────────
   function DayView() {
-    const dayEvents = getEventsForDayLive(focusDate);
+    // Sort chronologically — live bookings get appended at the end of the
+    // EVENTS list, so without this they'd land out-of-order in the day pane.
+    // All-day rows (no startHour) sink to the bottom via -1 sentinel.
+    const dayEvents = getEventsForDayLive(focusDate)
+      .slice()
+      .sort((a, b) => {
+        const ah = a.startHour ?? -1;
+        const bh = b.startHour ?? -1;
+        if (ah !== bh) return ah - bh;
+        return a.title.localeCompare(b.title);
+      });
     return (
       <div className="flex-1 border border-[#E8E4DA] overflow-auto" style={{ borderRadius: 8 }}>
         <div className="border-b border-[#E8E4DA] px-8 py-6 flex items-end justify-between">
