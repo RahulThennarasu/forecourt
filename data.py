@@ -68,6 +68,31 @@ def _tanaka_profile() -> dict:
         "notable": "anniversary this weekend",
     }
 
+def _philip_profile() -> dict:
+    """Philip Meyer demo profile (used for the 'philip' demo script)."""
+    phone = os.environ.get("DEMO_PHILIP_PHONE_NUMBER", "+16505550142")
+    return {
+        "phone": phone,
+        "name": "Philip Meyer",
+        "title": "Regional Vice President & Managing Director",
+        "room_type": "Santa Cruz Mountain-View Suite (Presidents Wing)",
+        "notable": "Corporate executive guest · deeply familiar with Sand Hill ops",
+        "preferences": {
+            "wellness": [
+                "elite endurance cycling",
+                "5:30 AM wheels-up",
+                "high-sodium hydration profile",
+            ],
+            "dining": [
+                "low-stimulus dining after board calls",
+                "Chef’s Counter alcove at Madera",
+                "fluid seating windows",
+            ],
+        },
+        # Used by voice.py to trigger deterministic demo responses.
+        "demo_script": "philip",
+    }
+
 
 def _ensure_guests_table(conn: sqlite3.Connection) -> None:
     # Defensive guard so data.py works even if db.init_db() wasn't called first
@@ -83,6 +108,22 @@ def _ensure_guests_table(conn: sqlite3.Connection) -> None:
 def seed_tanaka_profile(db_path: str = DB_PATH) -> None:
     """Insert the canonical Tanaka demo guest into SQLite if not already present."""
     profile = _tanaka_profile()
+    with sqlite3.connect(db_path) as conn:
+        _ensure_guests_table(conn)
+        already = conn.execute(
+            "SELECT 1 FROM guests WHERE phone = ?", (profile["phone"],)
+        ).fetchone()
+        if already:
+            return
+        conn.execute(
+            "INSERT INTO guests (phone, profile_json) VALUES (?, ?)",
+            (profile["phone"], json.dumps(profile)),
+        )
+        conn.commit()
+
+def seed_philip_profile(db_path: str = DB_PATH) -> None:
+    """Insert the Philip Meyer demo guest into SQLite if not already present."""
+    profile = _philip_profile()
     with sqlite3.connect(db_path) as conn:
         _ensure_guests_table(conn)
         already = conn.execute(
@@ -124,6 +165,10 @@ def lookup_guest(phone_number: str) -> dict | None:
     if hit is not None:
         return hit
     if _demo_mode():
+        which = os.environ.get("DEMO_GUEST", "tanaka").strip().lower()
+        if which == "philip":
+            demo_phone = os.environ.get("DEMO_PHILIP_PHONE_NUMBER", "+16505550142")
+            return GUESTS.get(demo_phone) or _philip_profile()
         demo_phone = os.environ.get("DEMO_PHONE_NUMBER", "+14086100377")
         return GUESTS.get(demo_phone) or _tanaka_profile()
     return None

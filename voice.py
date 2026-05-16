@@ -26,6 +26,7 @@ import db
 import ws
 from conversation import build_system_prompt, call_claude
 from data import LOCAL_CONTEXT, lookup_guest
+from demo_scripts import get_demo_turn
 from guard import redact_leaks
 from synthesis import synthesize
 
@@ -227,8 +228,20 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
     background.add_task(db.log_turn, call_sid, turn_n, "guest", speech, guest_ts)
 
     try:
-        system_prompt = build_system_prompt(guest, LOCAL_CONTEXT)
-        raw, say_text, actions = await call_claude(system_prompt, history)
+        # Deterministic demo script path (bypasses Claude) for repeatable demos.
+        demo_script = guest.get("demo_script") if isinstance(guest, dict) else None
+        if demo_script:
+            demo_turn = get_demo_turn(str(demo_script), turn_n - 1)
+            if demo_turn is None:
+                system_prompt = build_system_prompt(guest, LOCAL_CONTEXT)
+                raw, say_text, actions = await call_claude(system_prompt, history)
+            else:
+                say_text = demo_turn["say"]
+                actions = demo_turn.get("actions", [])
+                raw = f"<say>{say_text}</say><actions>{json.dumps(actions)}</actions>"
+        else:
+            system_prompt = build_system_prompt(guest, LOCAL_CONTEXT)
+            raw, say_text, actions = await call_claude(system_prompt, history)
     except Exception:
         logger.exception("claude_call_failed sid=%s", call_sid)
         # Roll back the user message so retry on the next turn isn't double-counted.
