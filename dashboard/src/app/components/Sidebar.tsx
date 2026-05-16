@@ -1,12 +1,14 @@
 import { motion, AnimatePresence } from "motion/react";
-import { CalendarDays, Users, Phone, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { CalendarDays, Users, Phone, PanelLeftClose, PanelLeftOpen, Hand } from "lucide-react";
+import handIcon from "../../assets/icons/hand.png";
 
-export type Page = "calendar" | "guests" | "live";
+export type Page = "calendar" | "guests" | "live" | "requests";
 
 const NAV = [
   { id: "calendar" as Page, label: "Calendar",  icon: CalendarDays },
   { id: "guests"   as Page, label: "Guests",    icon: Users },
   { id: "live"     as Page, label: "Live Call",  icon: Phone },
+  { id: "requests" as Page, label: "Requests",  icon: Hand, iconImage: handIcon },
 ];
 
 interface SidebarProps {
@@ -54,7 +56,7 @@ export function Sidebar({ page, setPage, collapsed, setCollapsed }: SidebarProps
 
       {/* Nav */}
       <nav className="pt-3 flex flex-col gap-0.5 px-2">
-        {NAV.map(({ id, label, icon: Icon }) => {
+        {NAV.map(({ id, label, icon: Icon, iconImage }) => {
           const active = page === id;
           return (
             <button
@@ -66,10 +68,19 @@ export function Sidebar({ page, setPage, collapsed, setCollapsed }: SidebarProps
                 background: active ? "#F2F0EB" : "transparent",
                 paddingLeft: collapsed ? 0 : 10,
                 paddingRight: collapsed ? 0 : 10,
-                justifyContent: collapsed ? "center" : "flex-start",
-              }}
-            >
-              <Icon className="w-4 h-4 flex-shrink-0" style={{ color: active ? "#1A1814" : "#BBB", strokeWidth: 1.5 }} />
+              justifyContent: collapsed ? "center" : "flex-start",
+            }}
+          >
+              {iconImage ? (
+                <img
+                  src={iconImage}
+                  alt=""
+                  className="w-4 h-4 flex-shrink-0"
+                  style={{ opacity: active ? 1 : 0.55 }}
+                />
+              ) : (
+                <Icon className="w-4 h-4 flex-shrink-0" style={{ color: active ? "#1A1814" : "#BBB", strokeWidth: 1.5 }} />
+              )}
               <AnimatePresence>
                 {!collapsed && (
                   <motion.span

@@ -1,5 +1,11 @@
 export type KeywordType = 'occasion' | 'logistical' | 'constraint' | 'preference';
-export type ReasoningType = 'occasion_detected' | 'memory_recall' | 'context_bridge' | 'preference_match' | 'synthesis_complete';
+export type ReasoningType =
+  | 'occasion_detected'
+  | 'memory_recall'
+  | 'context_bridge'
+  | 'preference_match'
+  | 'synthesis_complete'
+  | 'outside_service_bridge';
 export type DecisionType = 'offer' | 'confirmation' | 'clarification';
 export type ActionCategory = 'room' | 'dining' | 'amenity' | 'facility';
 

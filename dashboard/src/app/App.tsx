@@ -4,6 +4,7 @@ import { Calendar } from "./components/Calendar";
 import { Sidebar, Page } from "./components/Sidebar";
 import { GuestsView } from "./components/GuestsView";
 import { LiveCallView } from "./components/LiveCallView";
+import { RequestsPage } from "./components/RequestsPage";
 
 export default function App() {
   const [page, setPage] = useState<Page>("calendar");
@@ -34,6 +35,7 @@ export default function App() {
           )}
           {page === "guests" && <GuestsView />}
           {page === "live" && <LiveCallView />}
+          {page === "requests" && <RequestsPage />}
         </motion.div>
       </AnimatePresence>
     </div>
