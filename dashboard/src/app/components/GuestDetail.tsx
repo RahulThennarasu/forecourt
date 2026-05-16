@@ -2,6 +2,7 @@ import { motion } from "motion/react";
 import { ArrowLeft, Plane, Clock, Utensils, BedDouble, MapPin } from "lucide-react";
 import { EVENTS } from "./Calendar";
 import { MOCK_REQUESTS } from "@/data/mockRequests";
+import { useLiveBookings } from "@/app/lib/bookings";
 
 export interface GuestProfile {
   id: string;
@@ -56,8 +57,44 @@ function Tag({ children }: { children: React.ReactNode }) {
 export function GuestDetail({ guest, onBack }: { guest: GuestProfile; onBack: () => void }) {
   const ss = STATUS_STYLE[guest.status];
   const guestKey = guest.name.toLowerCase();
-  const guestRequests = MOCK_REQUESTS.filter((r) => r.requestedBy.toLowerCase() === guestKey);
-  const guestEvents = EVENTS.filter((e) => e.title.toLowerCase().includes(guest.name.split(" ")[0].toLowerCase()) || e.title.toLowerCase().includes(guestKey));
+  const firstName = guest.name.split(" ").slice(-1)[0].toLowerCase();
+  const { bookings: liveBookings, requests: liveRequests } = useLiveBookings();
+
+  // Merge live requests from the active call with the static MOCK_REQUESTS,
+  // matched by guest name. Without this, Mr. Meyer's detail page shows
+  // "No requests recorded" even after the call has produced action rows.
+  const liveForGuest = liveRequests.filter(
+    (r) => r.guestName.toLowerCase() === guestKey,
+  );
+  const guestRequests = [
+    ...liveForGuest.map((r) => ({
+      id: r.id,
+      service: r.service.replace(/_/g, " "),
+      summary: r.summary,
+    })),
+    ...MOCK_REQUESTS.filter((r) => r.requestedBy.toLowerCase() === guestKey).map(
+      (r) => ({ id: r.id, service: r.service, summary: r.summary }),
+    ),
+  ];
+
+  // Live calendar bookings for this guest get rendered alongside any
+  // hardcoded EVENTS that mention them.
+  const liveEventsForGuest = liveBookings
+    .filter((b) => b.guestName.toLowerCase() === guestKey)
+    .map((b) => ({
+      id: b.id,
+      type: b.category,
+      title: b.title.replace(/^.*? — /, ""), // strip the leading guest-name prefix
+      detail: b.detail,
+    }));
+  const guestEvents = [
+    ...liveEventsForGuest,
+    ...EVENTS.filter(
+      (e) =>
+        e.title.toLowerCase().includes(firstName) ||
+        e.title.toLowerCase().includes(guestKey),
+    ).map((e) => ({ id: e.id, type: e.type, title: e.title, detail: e.detail })),
+  ];
 
   return (
     <motion.div

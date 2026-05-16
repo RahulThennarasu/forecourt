@@ -185,13 +185,19 @@ function liveGuestToProfile(g: LiveGuest): GuestProfile {
     type: isMeyer ? "vip" : "stay",
     status: "in-house",
     note: g.phoneSuffix ? `Recent call · •••-${g.phoneSuffix}` : "Recent call",
+    // pastStays must always be an array — GuestDetail reads .length on it
+    // unconditionally. Empty list is fine for a freshly-seen caller.
+    pastStays: [],
+    // Only surface preferences that come from the seeded persona itself.
+    // Anything situational (schedule, today's specific requests) is pulled
+    // from this guest's live call data in GuestDetail's Requests / Calendar
+    // panels — putting it here would invent facts the agent never heard.
     preferences: isMeyer
       ? {
           dining: "Low-stimulus dining after board calls · Chef's Counter alcove at Madera",
           room: "Mountain-View Suite · private in-villa check-in",
-          schedule: "5:30 AM ride · early starts",
         }
-      : {},
+      : { dining: "—", room: "—" },
     background: isMeyer
       ? {
           interests: "Elite endurance cycling · philanthropy",
