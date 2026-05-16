@@ -131,25 +131,100 @@ Do NOT introduce: Postgres, Redis, Docker, Celery, Next.js, ORMs, authentication
 ## Repository layout
 
 ```
-/threshold
+/forecourt                       # repo root (project codename: Threshold)
 ├── CLAUDE.md                    # This file
 ├── README.md                    # Setup instructions for human teammates
+├── .env                         # API keys (gitignored)
+│
 ├── main.py                      # FastAPI app entry point
-├── voice.py                     # Twilio webhook handlers
-├── conversation.py              # Claude integration + turn logic
-├── synthesis.py                 # ElevenLabs wrapper
-├── data.py                      # In-memory guest profiles + local context
-├── db.py                        # SQLite schema + write helpers
-├── prompts.py                   # System prompt template + examples
-├── dashboard/
-│   ├── index.html               # Rahul's dashboard
-│   └── briefing.html            # Briefing card template
-├── audio/                       # Cached MP3 files (opening hooks, etc.)
-├── tests/
-│   ├── conversation_paths.md    # Canonical test conversations
-│   └── test_anticipatory.py     # Tests for offer firing
-└── .env                         # API keys (gitignored)
+├── voice.py                     # Twilio webhook handlers           (planned)
+├── conversation.py              # Claude integration + turn logic   (planned)
+├── synthesis.py                 # ElevenLabs wrapper                (planned)
+├── data.py                      # In-memory guest profiles + local  (planned)
+├── db.py                        # SQLite schema + write helpers     (planned)
+├── prompts.py                   # System prompt template + examples (planned)
+├── audio/                       # Cached MP3 files                  (planned)
+├── tests/                       # Canonical conversation paths      (planned)
+├── requirements.txt             # Python deps (fastapi, uvicorn, …)
+│
+├── index.html                   # Vite entrypoint for the dashboard
+├── vite.config.ts               # Vite config (figma asset resolver + tailwind)
+├── package.json                 # Dashboard deps (React, Radix, Tailwind v4)
+├── src/
+│   ├── main.tsx                 # React root
+│   ├── app/                     # App.tsx + dashboard components
+│   ├── imports/                 # Figma export assets (screenshots, etc.)
+│   └── styles/                  # tailwind.css, theme.css, globals.css
+└── guidelines/                  # Figma design guidelines
 ```
+
+Files marked `(planned)` don't exist yet — they're the target structure for the voice pipeline. `main.py` is currently a one-endpoint stub that returns hardcoded TwiML to confirm the Twilio webhook is wired.
+
+---
+
+## Local setup
+
+You need three things running concurrently during development: the FastAPI server, an ngrok tunnel pointing at it, and (separately) the dashboard dev server.
+
+### One-time Python setup
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+`requirements.txt` currently only pins `fastapi` and `uvicorn[standard]`. As the voice pipeline lands, add: `anthropic`, `elevenlabs`, `twilio`, `python-dotenv`.
+
+### `.env` (gitignored)
+
+Create `.env` at the repo root. None of these are wired into code yet beyond what Twilio needs, but all four will be required by the time the pipeline lands:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+ELEVENLABS_API_KEY=...
+TWILIO_ACCOUNT_SID=AC...
+TWILIO_AUTH_TOKEN=...
+```
+
+ngrok auth (one-time, if not already done):
+
+```bash
+ngrok config add-authtoken <token>
+```
+
+### Running the voice pipeline (FastAPI + Twilio)
+
+Three terminals:
+
+**Terminal 1 — FastAPI:**
+
+```bash
+source .venv/bin/activate
+uvicorn main:app --reload --port 8000
+```
+
+**Terminal 2 — ngrok:**
+
+```bash
+ngrok http 8000
+```
+
+Copy the `https://...ngrok-free.app` forwarding URL. ngrok URLs change every restart on the free tier — when ngrok restarts, the Twilio webhook must be repointed.
+
+**Terminal 3 — Twilio webhook (one-time per ngrok session):**
+The Twilio number is already purchased and its Voice webhook is pointed at `<ngrok-url>/voice` (HTTP POST). If ngrok restarts and the URL changes, update the webhook in Twilio Console → Phone Numbers → Active Numbers → (the number) → Voice Configuration → "A call comes in".
+
+Smoke test: call the Twilio number. The current stub plays `"Hello, this is the Rosewood Sand Hill concierge. The pipe is working. Goodbye."` and hangs up. If you hear that, the round trip works.
+
+### Running the dashboard
+
+```bash
+npm install        # first time only
+npm run dev
+```
+
+Vite serves the dashboard at `http://localhost:5173`. The WebSocket connection to FastAPI (`ws://localhost:8000/ws` once that endpoint exists) runs separately from Vite's dev server — Vite is frontend-only.
 
 ---
 
