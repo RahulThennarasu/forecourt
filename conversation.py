@@ -2,6 +2,19 @@
 
 from __future__ import annotations
 
+import json
+
+# Injected when lookup_guest() returned None (no match, DEMO_MODE off). Keeps
+# the system prompt structurally valid so its restraint rules handle the empty
+# past_stays / preferences gracefully without surfacing a phantom offer.
+WALK_IN_PROFILE: dict = {
+    "name": "Guest",
+    "past_stays": [],
+    "preferences": {},
+    "flight_today": None,
+    "notable": "Walk-in caller, no profile on record",
+}
+
 
 SYSTEM_PROMPT_TEMPLATE = """<system_prompt>
   <identity>
@@ -115,10 +128,27 @@ Ideal output:
 </system_prompt>"""
 
 
-def build_system_prompt(guest_profile: str, local_context: str) -> str:
-    """Inject per-call context without formatting the JSON examples."""
+def build_system_prompt(
+    guest_profile: dict | None,
+    local_context: dict,
+) -> str:
+    """Inject per-call guest profile and local context into the system prompt.
+
+    Both dicts are serialized as compact JSON (no whitespace) so the combined
+    payload stays under 800 tokens for effective prompt caching. .replace() is
+    used instead of .format() because the template contains literal JSON
+    examples with their own braces.
+
+    When guest_profile is None (lookup miss, DEMO_MODE off), WALK_IN_PROFILE is
+    injected so the agent still has a structurally valid profile. The system
+    prompt's restraint rules then handle the empty history gracefully — no
+    anticipatory offer can fire without a meaningful trigger.
+    """
+    profile = guest_profile if guest_profile is not None else WALK_IN_PROFILE
+    profile_json = json.dumps(profile, separators=(",", ":"))
+    context_json = json.dumps(local_context, separators=(",", ":"))
     return (
         SYSTEM_PROMPT_TEMPLATE
-        .replace("{guest_profile}", guest_profile)
-        .replace("{local_context}", local_context)
+        .replace("{guest_profile}", profile_json)
+        .replace("{local_context}", context_json)
     )
