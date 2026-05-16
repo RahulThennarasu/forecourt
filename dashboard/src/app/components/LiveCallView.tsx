@@ -1,43 +1,10 @@
-import { useEffect, useState } from 'react';
-import { CallHeader } from './call/CallHeader';
-import { OrchestrationLog } from './call/OrchestrationLog';
-import { mockCallDataPhilip } from '@/data/mockCallData.philip';
-import type { CallState } from '@/data/mockCallData';
+import { CallOrchestrationView } from './call/CallOrchestrationView';
 
+// LiveCallView is the live wrapper: CallOrchestrationView consumes the
+// WebSocket at /ws (call_started, guest_turn, agent_turn, leak_guard,
+// call_ended) and fetches /calls for the recent-calls list. No mock data,
+// no setTimeout simulation — the timeline reflects what's actually
+// happening on the line right now.
 export function LiveCallView() {
-  const [callState, setCallState] = useState<CallState>({
-    ...(mockCallDataPhilip as any),
-    entries: [],
-  });
-
-  // Simulate entries appearing over time
-  useEffect(() => {
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const entries: any[] = (mockCallDataPhilip as any).entries ?? [];
-
-    entries.forEach((entry, i) => {
-      const timer = setTimeout(() => {
-        setCallState((prev) => ({
-          ...prev,
-          entries: [...prev.entries, entry],
-        }));
-      }, (entry.timestamp ?? i * 4) * 1000 + 500);
-
-      timers.push(timer);
-    });
-
-    return () => timers.forEach(clearTimeout);
-  }, []);
-
-  return (
-    <div className="h-full overflow-hidden flex flex-col" style={{ background: '#FFFFFF' }}>
-      <CallHeader
-        guestName={callState.guestName}
-        phoneNumber={callState.phoneNumber}
-        callStartTime={callState.startTime}
-      />
-
-      <OrchestrationLog entries={callState.entries} />
-    </div>
-  );
+  return <CallOrchestrationView />;
 }
