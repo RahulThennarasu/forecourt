@@ -24,7 +24,12 @@ import db
 import ws
 from conversation import build_system_prompt, call_claude
 from data import LOCAL_CONTEXT, lookup_guest
+from guard import check_leaks
 from synthesis import synthesize
+
+# Used when the leak guard fires: deflect rather than risk a surveillance-feel
+# leak reaching the audio. Mirrors the prompt's "let the team confirm" escape.
+SAFE_DEFLECTION = "Let me have the team confirm that and follow up by text."
 
 logger = logging.getLogger(__name__)
 
@@ -159,9 +164,34 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
         )
 
     history.append({"role": "assistant", "content": raw})
+
+    # Hard backstop: scan say_text for profile facts the guest hasn't given a
+    # hook for. On any leak, replace with a deflection and drop all actions
+    # (the offer was likely built around the leaked fact). The leaky raw
+    # response is also rewritten in history so the next turn doesn't anchor
+    # on its bad output.
+    leaks = check_leaks(say_text, guest, history)
+    if leaks:
+        logger.warning(
+            "profile_leak sid=%s labels=%s leaked_text=%r",
+            call_sid, leaks, say_text,
+        )
+        say_text = SAFE_DEFLECTION
+        actions = []
+        history[-1] = {
+            "role": "assistant",
+            "content": f"<say>{SAFE_DEFLECTION}</say><actions>[]</actions>",
+        }
+        # Visibility on the dashboard — staff should know the guard caught it.
+        asyncio.create_task(ws.broadcast({
+            "type": "leak_guard",
+            "call_sid": call_sid,
+            "labels": leaks,
+        }))
+
     logger.info(
-        "turn sid=%s guest_words=%d say_words=%d actions=%d",
-        call_sid, len(speech.split()), len(say_text.split()), len(actions),
+        "turn sid=%s guest_words=%d say_words=%d actions=%d leaks=%d",
+        call_sid, len(speech.split()), len(say_text.split()), len(actions), len(leaks),
     )
 
     # Persist + broadcast actions (never block the response).
