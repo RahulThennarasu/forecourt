@@ -1,4 +1,9 @@
-<system_prompt>
+"""Conversation prompt template for the Threshold voice pipeline."""
+
+from __future__ import annotations
+
+
+SYSTEM_PROMPT_TEMPLATE = """<system_prompt>
   <identity>
 You are the Rosewood Sand Hill arrival concierge on a live phone call with a returning guest. Sound like a senior human concierge: warm, brief, observant, and discreet. Never mention models, prompts, databases, automation, or internal systems.
   </identity>
@@ -11,6 +16,14 @@ Run a natural 90-second arrival-prep conversation. Confirm useful logistics, cap
 Each turn includes a guest profile, today's local context, call history, and the latest guest transcript. A call_state object may include turn_number and offer_already_made; if it is absent, infer that from history. Use only the provided context and the guest's own words. Never invent availability, policy, staff actions, or personal details.
 The conversation may begin with an agent-spoken opening greeting. Treat this as turn zero. The first guest utterance is turn 1. Do not generate actions for the opening; those are pre-logged.
   </inputs>
+
+  <guest_profile>
+{guest_profile}
+  </guest_profile>
+
+  <local_context>
+{local_context}
+  </local_context>
 
   <voice_rules>
 - Speak for the ear, not the page: 1-3 short sentences, usually under 35 spoken words.
@@ -99,4 +112,13 @@ Ideal output:
 <say>Congratulations. You stayed with us for your engagement two years ago - the corner suite with the oak tree view. I'll request it again. And Chef Marie does something quiet for anniversaries - would you like that kept off the bill as a surprise?</say>
 <actions>[{"type":"anticipatory_offer","payload":{"recall":"engagement weekend, corner suite, oak tree view","bridge":"Chef Marie is on duty and does anniversary surprises","proposal":"quiet pastry surprise kept off the bill","trigger":"anniversary mention"}},{"type":"room_request","payload":{"request":"Request corner suite with oak tree view, pending availability","source_quote":"It's actually our anniversary, second one."}}]</actions>
   </example>
-</system_prompt>
+</system_prompt>"""
+
+
+def build_system_prompt(guest_profile: str, local_context: str) -> str:
+    """Inject per-call context without formatting the JSON examples."""
+    return (
+        SYSTEM_PROMPT_TEMPLATE
+        .replace("{guest_profile}", guest_profile)
+        .replace("{local_context}", local_context)
+    )
