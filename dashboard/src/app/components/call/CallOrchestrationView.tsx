@@ -558,6 +558,9 @@ export function CallOrchestrationView() {
     }
 
     if (last.type === 'agent_turn') {
+      // Live-call dashboard state only. Action routing into Calendar +
+      // Requests stores happens in <BackgroundActionIngestor /> at the App
+      // level, so it works regardless of which page is currently mounted.
       setCallState((prev) => {
         if (prev.callSid && prev.callSid !== last.call_sid) return prev;
         const targetId = `${last.call_sid}_${last.turn_number}`;

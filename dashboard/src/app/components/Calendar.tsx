@@ -1,7 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import rosewoodFacilities from "../../../../rosewood_facilities.json";
+import { useLiveBookings } from "@/app/lib/bookings";
 
 type View = "month" | "week" | "day";
 
@@ -463,6 +464,40 @@ export function Calendar() {
   const [tooltip, setTooltip]     = useState<TooltipState | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  // Live bookings produced by the conversation pipeline. Calendar treats them
+  // identically to the hardcoded EVENTS — they get folded into the same lists
+  // for month/week/day rendering and the day-sheet export.
+  const { bookings: liveBookings } = useLiveBookings();
+  const liveEvents = useMemo<CalEvent[]>(
+    () =>
+      liveBookings.map((b) => ({
+        id: b.id,
+        title: b.title,
+        start: b.date,
+        end: b.date,
+        type: b.category,
+        detail: b.detail,
+        startHour: b.startHour,
+        endHour: b.endHour,
+      })),
+    [liveBookings],
+  );
+  const allEvents = useMemo(() => [...EVENTS, ...liveEvents], [liveEvents]);
+  const allDayEvents = useMemo(
+    () => allEvents.filter((ev) => ev.startHour === undefined),
+    [allEvents],
+  );
+  const timedEvents = useMemo(
+    () => allEvents.filter((ev) => ev.startHour !== undefined),
+    [allEvents],
+  );
+
+  function getEventsForDayLive(date: Date): CalEvent[] {
+    const d = new Date(date);
+    d.setHours(12, 0, 0, 0);
+    return allEvents.filter((ev) => d >= toDate(ev.start) && d <= toDate(ev.end));
+  }
+
   const handleHover = useCallback((ev: CalEvent, x: number, y: number) => {
     setTooltip({ event: ev, x, y });
   }, []);
@@ -473,7 +508,7 @@ export function Calendar() {
   }
 
   function getDaySheetData(date: Date) {
-    const dayEvents = getEventsForDay(date).slice().sort((a, b) => {
+    const dayEvents = getEventsForDayLive(date).slice().sort((a, b) => {
       const ah = a.startHour ?? -1;
       const bh = b.startHour ?? -1;
       if (ah !== bh) return ah - bh;
@@ -711,8 +746,9 @@ export function Calendar() {
   // ── Month view ──────────────────────────────────────────────────────────
   function MonthView() {
     const weeks = buildMonthWeeks(focusDate.getFullYear(), focusDate.getMonth());
-    // For month view show all events (timed ones appear as single-day bars)
-    const allForMonth = EVENTS;
+    // For month view show all events (timed ones appear as single-day bars).
+    // Includes live bookings produced during the active call.
+    const allForMonth = allEvents;
     return (
       <div className="flex-1 border border-[#E8E4DA] overflow-hidden" style={{ borderRadius: 8 }}>
         <div className="grid grid-cols-7 border-b border-[#E8E4DA]">
@@ -762,14 +798,15 @@ export function Calendar() {
     const days = getWeekDays(focusDate);
     const weekKeys = new Set(days.map(d => dateKey(d)));
 
-    // All-day spanning bars
-    const placed = placeEventsForDays(days, 3, ALL_DAY_EVENTS);
+    // All-day spanning bars (static EVENTS only — live bookings always carry
+    // explicit hours).
+    const placed = placeEventsForDays(days, 3, allDayEvents);
     const maxAllDayRow = placed.reduce((m, ev) => Math.max(m, ev.row), -1);
     const allDayRows = Math.max(1, maxAllDayRow + 1);
     const allDayAreaH = allDayRows * ALL_DAY_ROW_H + 16;
 
-    // Timed events this week
-    const timedInWeek = TIMED_EVENTS.filter(ev => weekKeys.has(ev.start));
+    // Timed events this week — combined hardcoded + live.
+    const timedInWeek = timedEvents.filter(ev => weekKeys.has(ev.start));
 
     // Auto hour range — expand/contract based on what's booked
     let firstHour = 8, lastHour = 18;
@@ -977,7 +1014,7 @@ export function Calendar() {
 
   // ── Day view ────────────────────────────────────────────────────────────
   function DayView() {
-    const dayEvents = getEventsForDay(focusDate);
+    const dayEvents = getEventsForDayLive(focusDate);
     return (
       <div className="flex-1 border border-[#E8E4DA] overflow-auto" style={{ borderRadius: 8 }}>
         <div className="border-b border-[#E8E4DA] px-8 py-6 flex items-end justify-between">

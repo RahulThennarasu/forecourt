@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { BackgroundActionIngestor } from "./components/BackgroundActionIngestor";
 import { Calendar } from "./components/Calendar";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Sidebar, Page } from "./components/Sidebar";
@@ -13,6 +14,9 @@ export default function App() {
 
   return (
     <div className="size-full bg-white flex overflow-hidden">
+      {/* Always-mounted socket consumer that routes live actions into the
+          calendar + requests stores, regardless of which page is visible. */}
+      <BackgroundActionIngestor />
       <Sidebar
         page={page}
         setPage={setPage}

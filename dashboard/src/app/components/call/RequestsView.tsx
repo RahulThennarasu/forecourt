@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Activity, Car, Flower2, Monitor, PhoneCall } from 'lucide-react';
+import { Activity, Car, Flower2, Monitor, PhoneCall, Sparkles } from 'lucide-react';
 import { mockCallDataPhilip } from '@/data/mockCallData.philip';
+import { LiveRequest, useLiveBookings } from '@/app/lib/bookings';
 
 const CREAM_HIGHLIGHT = '#F3E5D3';
 const FOREST_GREEN = '#0a3622';
@@ -59,6 +60,10 @@ const MENLO_VENDORS: Record<string, Vendor[]> = {
     { name: 'Peninsula Private Chef Network', phone: '+1 (650) 555-0144', area: 'Menlo Park', notes: 'In-suite chef service · tasting menus' },
     { name: 'Wine Steward On-Call', phone: '+1 (650) 555-0192', area: 'Atherton', notes: 'Pairing + bottle sourcing' },
   ],
+  fireworks: [
+    { name: 'Bay Area Pyrotechnics', phone: '+1 (650) 555-0211', area: 'Redwood City', notes: 'Permitted aerial displays · Atherton/Menlo Park · 72-hr notice ideal' },
+    { name: 'Pyro Spectaculars', phone: '+1 (707) 559-9000', area: 'Rialto / On-site', notes: 'Professional crew · liability coverage included' },
+  ],
 };
 
 function normalizeServiceFromText(text: string): string {
@@ -101,6 +106,10 @@ function serviceMeta(service: string) {
       return { label: 'pet care', banner: '#F1E8DC', icon: null as any };
     case 'private dining':
       return { label: 'private dining', banner: '#EAF4FF', icon: null as any };
+    case 'fireworks':
+      return { label: 'fireworks', banner: '#FFE7C2', icon: Sparkles };
+    case 'flag_for_staff':
+      return { label: 'staff request', banner: '#F1E8DC', icon: null as any };
     default:
       return { label: service, banner: '#EAF4FF', icon: PhoneCall };
   }
@@ -108,11 +117,45 @@ function serviceMeta(service: string) {
 
 export function RequestsView() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { requests: liveRequests } = useLiveBookings();
+
+  function fmtScheduledRange(r: LiveRequest): string | undefined {
+    if (r.startHour === undefined) return undefined;
+    function fmt(h: number) {
+      const hr = Math.floor(h);
+      const min = Math.round((h - hr) * 60);
+      const isPm = hr >= 12;
+      const display = hr % 12 === 0 ? 12 : hr % 12;
+      const m = min === 0 ? '' : `:${String(min).padStart(2, '0')}`;
+      return `${display}${m} ${isPm ? 'PM' : 'AM'}`;
+    }
+    return r.endHour !== undefined && r.endHour !== r.startHour
+      ? `${fmt(r.startHour)} – ${fmt(r.endHour)}`
+      : fmt(r.startHour);
+  }
 
   const cards = useMemo<RequestCard[]>(() => {
     const entries: any[] = (mockCallDataPhilip as any)?.entries ?? [];
     const guestName: string = (mockCallDataPhilip as any)?.guestName ?? 'Guest';
     const requestCards: RequestCard[] = [];
+
+    // Live requests from the active call go FIRST so they're the most
+    // prominent thing on the page. They also get a scheduled-time line when
+    // a clock range was parsed from the guest's words.
+    for (const r of liveRequests) {
+      const scheduled = fmtScheduledRange(r);
+      const details = [...r.details];
+      if (scheduled) details.unshift(`Scheduled: ${scheduled}`);
+      requestCards.push({
+        id: r.id,
+        service: r.service,
+        summary: r.summary,
+        details,
+        vendors: MENLO_VENDORS[r.service] ?? [],
+        requestedBy: r.guestName,
+        requestedAt: r.requestedAt,
+      });
+    }
 
     for (const entry of entries) {
       const reasoning: any[] = entry?.reasoning ?? [];
@@ -208,7 +251,7 @@ export function RequestsView() {
     );
 
     return requestCards;
-  }, []);
+  }, [liveRequests]);
 
   return (
     <div className="flex-1 overflow-y-auto px-10 py-10" style={{ background: '#FFFFFF' }}>
