@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import ssl
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -31,6 +32,16 @@ MODEL_ID = os.environ.get("ELEVENLABS_MODEL_ID", "eleven_turbo_v2_5")
 OUTPUT_FORMAT = "mp3_22050_32"
 
 ELEVENLABS_TIMEOUT_S = 10
+
+
+def _ssl_context() -> ssl.SSLContext:
+    """Use certifi's CA bundle when available; fall back to Python defaults."""
+    try:
+        import certifi
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ssl.create_default_context()
 
 
 def _sync_synthesize(text: str, out_path: Path) -> None:
@@ -56,7 +67,11 @@ def _sync_synthesize(text: str, out_path: Path) -> None:
         },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=ELEVENLABS_TIMEOUT_S) as resp:
+    with urllib.request.urlopen(
+        req,
+        timeout=ELEVENLABS_TIMEOUT_S,
+        context=_ssl_context(),
+    ) as resp:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         with out_path.open("wb") as f:
             f.write(resp.read())
