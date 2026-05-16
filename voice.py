@@ -97,7 +97,7 @@ def _twiml(body: str) -> PlainTextResponse:
 
 @router.post("/voice")
 @router.get("/voice")
-async def voice(request: Request) -> PlainTextResponse:
+async def voice(request: Request, background: BackgroundTasks) -> PlainTextResponse:
     form = await _twilio_form(request)
     call_sid = form.get("CallSid", "")
     from_number = form.get("From", "")
@@ -116,6 +116,9 @@ async def voice(request: Request) -> PlainTextResponse:
             "call_started sid=%s name=%s phone_suffix=%s",
             call_sid, guest["name"], phone_suffix,
         )
+        # Persist the call record. Idempotent — Twilio's Primary+Fallback fire
+        # pattern won't create duplicates (ON CONFLICT DO NOTHING).
+        background.add_task(db.log_call_start, call_sid, guest["name"], phone_suffix)
         # Fire-and-forget so we hit the <200ms budget even if the dashboard is slow.
         asyncio.create_task(ws.broadcast({
             "type": "call_started",
@@ -315,5 +318,7 @@ async def respond(request: Request, background: BackgroundTasks) -> PlainTextRes
             "ts_seconds": agent_ts,
             "reason": "guest_closed",
         }))
+        # Persist the end-of-call so /calls shows the duration in the history.
+        background.add_task(db.log_call_end, call_sid, "guest_closed")
 
     return _twiml(body)

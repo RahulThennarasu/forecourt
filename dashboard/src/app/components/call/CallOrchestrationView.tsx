@@ -13,6 +13,7 @@ import {
   SocketEvent,
   useThresholdSocket,
 } from '@/app/lib/socket';
+import { CallRecord, fetchCalls } from '@/app/lib/api';
 import { CallHeader } from './CallHeader';
 import { OrchestrationLog } from './OrchestrationLog';
 
@@ -212,9 +213,60 @@ function maskedPhone(suffix: string): string {
   return `+1 (•••) •••-${s}`;
 }
 
+function formatCallTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = d.toDateString() === yesterday.toDateString();
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (sameDay) return time;
+  if (isYesterday) return `Yesterday, ${time}`;
+  const sameYear = d.getFullYear() === now.getFullYear();
+  return `${d.toLocaleDateString([], { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) })}, ${time}`;
+}
+
+function formatDuration(call: CallRecord): string {
+  if (!call.ended_at) return 'in progress';
+  const start = new Date(call.started_at).getTime();
+  const end = new Date(call.ended_at).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return '—';
+  const totalSec = Math.round((end - start) / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
 export function CallOrchestrationView() {
   const [callState, setCallState] = useState<LiveCallState>(EMPTY);
+  const [pastCalls, setPastCalls] = useState<CallRecord[]>([]);
   const { status, last } = useThresholdSocket();
+
+  // Initial fetch — show whatever's already in the DB when the page loads.
+  useEffect(() => {
+    let cancelled = false;
+    fetchCalls()
+      .then((calls) => {
+        if (!cancelled) setPastCalls(calls);
+      })
+      .catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn('[calls] initial fetch failed', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Refetch when a call ends so the new one shows up at the top of the list.
+  useEffect(() => {
+    if (last?.type !== 'call_ended') return;
+    fetchCalls()
+      .then(setPastCalls)
+      .catch((err) => console.warn('[calls] refetch failed', err));
+  }, [last]);
 
   useEffect(() => {
     if (!last) return;
@@ -308,33 +360,99 @@ export function CallOrchestrationView() {
     return (
       <div className="h-full overflow-hidden flex flex-col" style={{ background: '#F5FAFF' }}>
         <CallHeader guestName="Waiting" phoneNumber="—" startedAtMs={null} endedAtMs={null} />
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 overflow-y-auto px-10 py-12">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4 }}
-            className="text-center"
+            className="max-w-2xl mx-auto"
           >
-            <p
-              style={{
-                fontFamily: 'Cormorant Garamond, Georgia, serif',
-                fontSize: '1.5rem',
-                fontWeight: 300,
-                color: '#1E2A35',
-                marginBottom: 8,
-              }}
-            >
-              Waiting for an incoming call
-            </p>
-            <p
-              style={{
-                fontFamily: 'PP Neue Montreal, sans-serif',
-                fontSize: '0.8125rem',
-                color: '#8EA1B1',
-              }}
-            >
-              websocket {status} · ready when the line rings
-            </p>
+            <div className="text-center mb-12">
+              <p
+                style={{
+                  fontFamily: 'Cormorant Garamond, Georgia, serif',
+                  fontSize: '1.5rem',
+                  fontWeight: 300,
+                  color: '#1E2A35',
+                  marginBottom: 8,
+                }}
+              >
+                Waiting for an incoming call
+              </p>
+              <p
+                style={{
+                  fontFamily: 'PP Neue Montreal, sans-serif',
+                  fontSize: '0.8125rem',
+                  color: '#8EA1B1',
+                }}
+              >
+                websocket {status} · ready when the line rings
+              </p>
+            </div>
+
+            {pastCalls.length > 0 ? (
+              <div>
+                <p
+                  className="uppercase"
+                  style={{
+                    fontFamily: 'PP Neue Montreal, sans-serif',
+                    fontSize: '0.6875rem',
+                    letterSpacing: '0.14em',
+                    color: '#6E7E8C',
+                    marginBottom: 14,
+                  }}
+                >
+                  Recent calls
+                </p>
+                <ul className="space-y-2">
+                  {pastCalls.map((call) => (
+                    <li
+                      key={call.call_sid}
+                      className="flex items-baseline justify-between gap-4 rounded-xl px-4 py-3"
+                      style={{
+                        background: '#FFFFFF',
+                        border: '1px solid #E5EAF0',
+                      }}
+                    >
+                      <div className="min-w-0">
+                        <p
+                          style={{
+                            fontFamily: 'Cormorant Garamond, Georgia, serif',
+                            fontSize: '1.0625rem',
+                            color: '#1E2A35',
+                            lineHeight: 1.25,
+                          }}
+                        >
+                          {call.guest_name}
+                        </p>
+                        <p
+                          style={{
+                            fontFamily: 'PP Neue Montreal, sans-serif',
+                            fontSize: '0.75rem',
+                            color: '#8EA1B1',
+                            marginTop: 2,
+                          }}
+                        >
+                          {formatCallTime(call.started_at)}
+                          {call.phone_suffix ? ` · ${'•••-'}${call.phone_suffix}` : ''}
+                        </p>
+                      </div>
+                      <p
+                        className="flex-shrink-0"
+                        style={{
+                          fontFamily: 'PP Neue Montreal, sans-serif',
+                          fontSize: '0.75rem',
+                          color: call.ended_at ? '#6E7E8C' : '#9BCFEF',
+                          letterSpacing: '0.02em',
+                        }}
+                      >
+                        {formatDuration(call)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </motion.div>
         </div>
       </div>

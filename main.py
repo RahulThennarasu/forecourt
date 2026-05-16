@@ -20,6 +20,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 import db
@@ -38,6 +39,16 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="threshold")
 
+# Demo CORS — the Vite dashboard runs on a different origin (:5173) and needs
+# to hit /calls and friends. WebSockets aren't subject to the same browser
+# preflight, which is why /ws worked without this.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Serve cached audio (opening hook MP3s, fake-live offer fallback) under /audio.
 # Twilio dereferences these public URLs via the ngrok tunnel.
 AUDIO_DIR = Path("audio")
@@ -45,6 +56,14 @@ AUDIO_DIR.mkdir(exist_ok=True)
 app.mount("/audio", StaticFiles(directory=str(AUDIO_DIR)), name="audio")
 
 app.include_router(voice_router)
+
+
+@app.get("/calls")
+async def list_calls(limit: int = 50) -> dict:
+    """Recent calls (newest first). Read on demand by the dashboard's
+    past-calls panel — no impact on the per-turn latency budget.
+    """
+    return {"calls": db.list_calls(limit=limit)}
 
 
 @app.on_event("startup")
