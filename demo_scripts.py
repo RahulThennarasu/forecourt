@@ -209,7 +209,18 @@ def get_demo_turn(
         # Strict > so earlier-indexed rows win on ties.
         if best is None or score > best[0]:
             best = (score, idx, turn)
-    if best is None:
-        return None
-    _, idx, turn = best
-    return idx, turn
+    if best is not None:
+        _, idx, turn = best
+        return idx, turn
+
+    # First-utterance fallback. Twilio's STT regularly garbles the opening
+    # response ("I'll be arriving this afternoon" -> "At the top for you.
+    # This afternoon…"), and the arrival turn is by far the most likely
+    # demo intent on the first exchange. If no scripted row has fired yet,
+    # default to it instead of dropping straight into the LLM and letting
+    # Claude ask follow-up questions that aren't part of the demo path.
+    # Once any scripted row has fired, this fallback disengages so genuine
+    # curveballs ("fireworks at 10 PM", etc.) still go to Claude.
+    if not used and PHILIP_TURNS:
+        return 0, PHILIP_TURNS[0]
+    return None
