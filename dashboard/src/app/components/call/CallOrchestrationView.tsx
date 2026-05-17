@@ -733,60 +733,64 @@ export function CallOrchestrationView() {
   }
 
   // ---- View: live, waiting placeholder ----
+  // No active call: surface the past-calls list as the primary content
+  // rather than a centered "Waiting for an incoming call" headline. The
+  // empty-state copy moves to a small status pill so the websocket info is
+  // still glanceable without dominating the screen.
   if (callState.status === 'waiting') {
     return (
       <div className="h-full overflow-hidden flex flex-col" style={{ background: '#F5FAFF' }}>
-        <CallHeader guestName="Waiting" phoneNumber="—" startedAtMs={null} endedAtMs={null} />
-        <div className="flex-1 overflow-y-auto px-10 py-12">
+        <CallHeader guestName="Past calls" phoneNumber={status === 'open' ? 'Standing by' : `websocket ${status}`} startedAtMs={null} endedAtMs={null} />
+        <div className="flex-1 overflow-y-auto px-10 py-10">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.4 }}
+            transition={{ duration: 0.3 }}
             className="max-w-2xl mx-auto"
           >
-            <div className="text-center mb-12">
+            <div className="flex items-baseline justify-between mb-5">
               <p
+                className="uppercase"
                 style={{
-                  fontFamily: 'Cormorant Garamond, Georgia, serif',
-                  fontSize: '1.5rem',
-                  fontWeight: 300,
-                  color: '#1E2A35',
-                  marginBottom: 8,
+                  fontFamily: 'PP Neue Montreal, sans-serif',
+                  fontSize: '0.6875rem',
+                  letterSpacing: '0.14em',
+                  color: '#6E7E8C',
                 }}
               >
-                Waiting for an incoming call
+                Recent calls
               </p>
               <p
                 style={{
                   fontFamily: 'PP Neue Montreal, sans-serif',
-                  fontSize: '0.8125rem',
+                  fontSize: '0.6875rem',
+                  letterSpacing: '0.08em',
                   color: '#8EA1B1',
+                  textTransform: 'uppercase',
                 }}
               >
-                websocket {status} · ready when the line rings
+                {pastCalls.length} on file
               </p>
             </div>
 
             {pastCalls.length > 0 ? (
-              <div>
-                <p
-                  className="uppercase"
-                  style={{
-                    fontFamily: 'PP Neue Montreal, sans-serif',
-                    fontSize: '0.6875rem',
-                    letterSpacing: '0.14em',
-                    color: '#6E7E8C',
-                    marginBottom: 14,
-                  }}
-                >
-                  Recent calls
-                </p>
-                <PastCallsList
-                  calls={pastCalls}
-                  onSelectCall={(sid) => openHistory(sid, 'live')}
-                />
-              </div>
-            ) : null}
+              <PastCallsList
+                calls={pastCalls}
+                onSelectCall={(sid) => openHistory(sid, 'live')}
+              />
+            ) : (
+              <p
+                style={{
+                  fontFamily: 'PP Neue Montreal, sans-serif',
+                  fontSize: '0.875rem',
+                  color: '#8EA1B1',
+                  textAlign: 'center',
+                  padding: '48px 0',
+                }}
+              >
+                No calls yet — ready when the line rings.
+              </p>
+            )}
           </motion.div>
         </div>
       </div>
